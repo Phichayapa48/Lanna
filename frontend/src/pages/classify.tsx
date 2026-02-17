@@ -9,11 +9,9 @@ const MapComponent = dynamic(() => import("../components/MapPopup"), {
 });
 
 /* =============================================
-   ✅ ใช้ Environment Variable ตามเวอร์ชันใหม่
+   ✅ แก้ให้ตรงกับ .env.local: NEXT_PUBLIC_API_URL
    ============================================= */
-const API_BASE =
-  process.env.NEXT_PUBLIC_API_BASE ||
-  "http://localhost:8000";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 type PredictionResult = {
   class_name: string;
@@ -69,7 +67,7 @@ export default function Classify() {
       setError("");
       setSuccess("");
 
-      /* ✅ ใช้ Path api/v1 ตามที่เพื่อนอัปเดต */
+      // ✅ ยิงไปที่ Endpoint Predict บน Render
       const res = await fetch(`${API_BASE}/api/v1/predict/`, {
         method: "POST",
         body: formData,
@@ -89,7 +87,8 @@ export default function Classify() {
       }
 
     } catch (err: any) {
-      setError(err.message || "Load failed");
+      console.error("Predict Error:", err);
+      setError(err.message || "เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ (กำลังปลุก Server บน Render...)");
     } finally {
       setLoading(false);
     }
@@ -101,7 +100,6 @@ export default function Classify() {
     try {
       setReviewLoading(true);
 
-      /* ✅ เรียก API สำหรับบันทึกรีวิว */
       const res = await fetch(`${API_BASE}/reviews/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -116,11 +114,11 @@ export default function Classify() {
       const data = await res.json();
 
       if (!res.ok) {
-        alert(data.detail || "เกิดข้อผิดพลาด");
+        alert(data.detail || "เกิดข้อผิดพลาดในการบันทึก");
         return;
       }
 
-      /* ✅ Redirect ไปหน้าแผนที่พิกัดที่เพิ่งรีวิว */
+      // ✅ ส่งไปหน้าแผนที่พิกัดที่เพิ่งรีวิว
       router.push(
         `/review-map?review_id=${data.review_id}&class=${result.class_name}`
       );
@@ -147,7 +145,7 @@ export default function Classify() {
         <div className="mb-6">
           <Link
             href="/"
-            className="inline-block bg-white/10 hover:bg-white/20 px-5 py-2 rounded-xl text-sm transition"
+            className="inline-block bg-white/10 hover:bg-white/20 px-5 py-2 rounded-xl text-sm transition shadow-sm"
           >
             ← กลับหน้าแรก
           </Link>
@@ -178,14 +176,14 @@ export default function Classify() {
           <button
             onClick={handleUpload}
             disabled={loading}
-            className="w-full bg-green-500 hover:bg-green-600 transition px-6 py-4 rounded-2xl font-bold shadow-lg text-lg disabled:opacity-50"
+            className="w-full bg-green-500 hover:bg-green-600 transition px-6 py-4 rounded-2xl font-bold shadow-lg text-lg disabled:opacity-50 active:scale-95"
           >
             {loading ? "⌛ กำลังวิเคราะห์..." : "🔍 เริ่มวิเคราะห์ภาพ"}
           </button>
         </div>
 
         {error && (
-          <div className="mt-6 p-4 bg-red-500/20 border border-red-500/50 rounded-xl text-red-300 text-center font-medium">
+          <div className="mt-6 p-4 bg-red-500/20 border border-red-500/50 rounded-xl text-red-300 text-center font-medium animate-pulse">
             ❌ {error}
           </div>
         )}
@@ -194,9 +192,7 @@ export default function Classify() {
           <div className="mt-14 rounded-3xl overflow-hidden bg-white/10 dark:bg-slate-900 border border-white/20 shadow-inner animate-fadeIn">
 
             <div className="bg-green-600 text-white p-8 text-center">
-              <h2 className="text-3xl font-bold">
-                {vegetable.thai_name}
-              </h2>
+              <h2 className="text-3xl font-bold">{vegetable.thai_name}</h2>
               <p className="italic mt-2 opacity-90">{vegetable.scientific_name}</p>
               <div className="mt-4 inline-block bg-black/20 px-4 py-1 rounded-full text-sm">
                 ความเชื่อมั่น {(result.confidence * 100).toFixed(2)}%
@@ -237,7 +233,7 @@ export default function Classify() {
                   <div>
                     <h4 className="font-bold text-green-400 flex items-center gap-2">🍽 เมนูแนะนำ</h4>
                     <ul className="list-disc list-inside pl-6 border-l-2 border-green-500/30">
-                      {vegetable.recommended_menu.map((menu: string, i: number) => (
+                      {vegetable.recommended_menu?.map((menu: string, i: number) => (
                         <li key={i}>{menu}</li>
                       ))}
                     </ul>
@@ -245,7 +241,7 @@ export default function Classify() {
                 </div>
               </div>
 
-              {/* 🌟 ส่วนเขียนรีวิว (แอ๋มกู้ชีพกลับมา) */}
+              {/* 🌟 ส่วนเขียนรีวิว */}
               <div className="mt-10 pt-8 border-t border-white/10 text-center">
                 {!showReview ? (
                   <button
@@ -255,7 +251,7 @@ export default function Classify() {
                     ⭐ คุณเจอผักชนิดนี้ที่ไหน? เขียนรีวิวเลย
                   </button>
                 ) : (
-                  <div className="mt-6 bg-white/5 p-6 rounded-3xl border border-white/10 text-left space-y-4 animate-slideUp">
+                  <div className="mt-6 bg-white/5 p-6 rounded-3xl border border-white/10 text-left space-y-4">
                     <h3 className="text-xl font-semibold text-yellow-400">เขียนรีวิวและปักหมุดพิกัด</h3>
                     
                     <div>
@@ -263,7 +259,7 @@ export default function Classify() {
                       <select
                         value={rating}
                         onChange={(e) => setRating(Number(e.target.value))}
-                        className="w-full p-3 rounded-xl bg-gray-800 text-white border border-white/20 focus:ring-2 focus:ring-green-500 outline-none"
+                        className="w-full p-3 rounded-xl bg-gray-800 text-white border border-white/20 outline-none"
                       >
                         {[5,4,3,2,1].map(n => (
                           <option key={n} value={n}>{n} ดาว {"⭐".repeat(n)}</option>
@@ -277,7 +273,7 @@ export default function Classify() {
                         placeholder="บอกเล่าประสบการณ์หรือสถานที่พบเจอ..."
                         value={reviewText}
                         onChange={(e) => setReviewText(e.target.value)}
-                        className="w-full p-4 rounded-xl bg-gray-800 text-white border border-white/20 focus:ring-2 focus:ring-green-500 outline-none h-32"
+                        className="w-full p-4 rounded-xl bg-gray-800 text-white border border-white/20 h-32 outline-none focus:border-green-500 transition"
                       />
                     </div>
 
@@ -285,9 +281,9 @@ export default function Classify() {
                       <button
                         onClick={handleSubmitReview}
                         disabled={reviewLoading}
-                        className="flex-1 bg-green-500 hover:bg-green-600 px-6 py-3 rounded-xl font-bold transition disabled:opacity-50 shadow-lg"
+                        className="flex-1 bg-green-500 hover:bg-green-600 px-6 py-3 rounded-xl font-bold transition disabled:opacity-50"
                       >
-                        {reviewLoading ? "⌛ กำลังบันทึกพิกัด..." : "📍 บันทึกและเปิดแผนที่"}
+                        {reviewLoading ? "⌛ กำลังบันทึก..." : "📍 บันทึกและเปิดแผนที่"}
                       </button>
                       <button
                         onClick={() => setShowReview(false)}
@@ -303,7 +299,6 @@ export default function Classify() {
             </div>
           </div>
         )}
-
       </div>
     </div>
   );
