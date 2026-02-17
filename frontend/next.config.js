@@ -1,15 +1,22 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  
+  // 🚀 ข้ามการตรวจ Error เพื่อให้ Build ผ่านบน Render ได้ไวที่สุด
   typescript: {
-    // !! คำเตือน !!
-    // อันนี้จะทำให้ Build ผ่านแม้จะมี Type errors
-    // เหมาะมากสำหรับเวลาจะรีบเอาขึ้น Production แบบตอนนี้
     ignoreBuildErrors: true,
   },
   eslint: {
-    // ปิดการตรวจ Lint ตอน Build ด้วย จะได้ไวขึ้นและไม่พังง่าย
     ignoreDuringBuilds: true,
+  },
+
+  // 🖼️ อนุญาตให้ดึงรูปจากโดเมนภายนอกมาโชว์ในแอปได้
+  images: {
+    domains: [
+      'qazihfmznjntahzhjaca.supabase.co', // Supabase URL ของแอ๋ม
+      'lanna-backend.onrender.com',       // Render Backend ของแอ๋ม
+      'maps.googleapis.com'               // สำหรับ Google Maps
+    ],
   },
 }
 
