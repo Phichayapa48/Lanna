@@ -3,12 +3,17 @@ import Link from "next/link";
 import Head from "next/head";
 import { motion } from "framer-motion";
 
+/* =========================
+   ✅ ใช้ ENV แทน localhost
+========================= */
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE!;
+
 export default function Home() {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("http://localhost:8000/me", {
+    fetch(`${API_BASE}/auth/me`, {
       credentials: "include",
     })
       .then((res) => res.json())
@@ -20,7 +25,7 @@ export default function Home() {
   }, []);
 
   const handleLogout = () => {
-    window.location.href = "http://localhost:8000/logout";
+    window.location.href = `${API_BASE}/auth/logout`;
   };
 
   return (
