@@ -1,34 +1,52 @@
-# --- บังคับใช้เวอร์ชัน CPU เพียวๆ (ต้องระบุ +cpu ให้ชัดเจน) ---
+# ===============================
+# PyTorch CPU (บังคับ CPU ล้วน)
+# ===============================
 --extra-index-url https://download.pytorch.org/whl/cpu
 torch==2.2.1+cpu
 torchvision==0.17.1+cpu
 torchaudio==2.2.1+cpu
 
-# --- Core Computer Vision (ตัดตัวหนักออก) ---
+# ===============================
+# Computer Vision
+# ===============================
 ultralytics==8.4.14
 opencv-python-headless==4.10.0.84
 pillow==10.3.0
 
-# --- Backend & API ---
+# ===============================
+# Backend & API
+# ===============================
 fastapi==0.111.0
 uvicorn[standard]==0.30.1
 gunicorn==22.0.0
-python-multipart==0.0.9
 python-dotenv==1.0.1
+python-multipart==0.0.9
 
-# --- Database & Integration ---
-# (ใช้แค่ supabase ตัวเดียวพ่วงตัวอื่นมาให้เอง ไม่ต้องแยกบรรทัดเยอะครับ)
+# ===============================
+# Database
+# ===============================
+SQLAlchemy==2.0.30
+
+# (ถ้าใช้ async engine ให้เปิดบรรทัดนี้)
+# asyncpg==0.29.0
+
+# ===============================
+# Supabase
+# ===============================
 supabase==2.5.0
 httpx==0.27.0
 
-# --- Data Processing ---
-# (ลดเวอร์ชันลงนิดเพื่อความเสถียรของพื้นที่)
+# ===============================
+# Data Processing (stable range)
+# ===============================
 numpy>=1.24.0,<2.0.0
-pandas>=2.0.0
-scikit-learn>=1.4.0
+pandas>=2.0.0,<3.0.0
+scikit-learn>=1.4.0,<2.0.0
 
-# --- Utilities & Security ---
-pydantic>=2.0.0
+# ===============================
+# Security & Auth
+# ===============================
+pydantic>=2.0.0,<3.0.0
 cryptography>=42.0.0
 PyJWT==2.8.0
 python-jose[cryptography]==3.3.0
@@ -37,4 +55,3 @@ bcrypt==4.1.3
 requests==2.32.3
 PyYAML==6.0.1
 itsdangerous
-python-multipart
