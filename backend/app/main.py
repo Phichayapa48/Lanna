@@ -12,7 +12,7 @@ from app.routers.predict_router import router as predict_router
 from app.routers.auth_router import router as auth_router
 from app.routers.review_router import router as review_router
 
-# Models (ต้อง Import เพื่อให้ SQLAlchemy สร้าง Table)
+# Models (ต้อง import เพื่อให้ SQLAlchemy รู้จัก table)
 from app.models.review import Review
 from app.models.user import User
 
@@ -26,9 +26,8 @@ app = FastAPI(
 )
 
 # =========================
-# 2. CORS Setup (ปรับให้ยืดหยุ่น)
+# 2. CORS Setup
 # =========================
-# ดึง URL จาก Environment Variable (ถ้ามี) หรือใส่เอง
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
 
 origins = [
@@ -36,13 +35,13 @@ origins = [
     "http://127.0.0.1:3000",
     "http://localhost:8000",
     "http://127.0.0.1:8000",
-    FRONTEND_URL, # Domain ของเพื่อนบน Vercel/Render
+    FRONTEND_URL,
 ]
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
-    allow_credentials=True,   # จำเป็นสำหรับ Cookie / OAuth
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -50,19 +49,17 @@ app.add_middleware(
 # =========================
 # 3. Session Middleware
 # =========================
-# บน Render เราจะได้ HTTPS มาฟรีๆ ดังนั้นต้องตั้งค่าให้รองรับ
 app.add_middleware(
     SessionMiddleware,
     secret_key=settings.SECRET_KEY,
-    same_site="lax",     
-    https_only=True,     # เปลี่ยนเป็น True เพื่อความปลอดภัยบน Production
+    same_site="lax",
+    https_only=True,   # Render เป็น HTTPS
 )
 
 # =========================
 # 4. OAuth Setup
 # =========================
 if not settings.GOOGLE_CLIENT_ID:
-    # บน Render ถ้าลืมใส่ Env ตัวนี้ App จะพังทันที (ป้องกัน Bug)
     print("⚠️ WARNING: GOOGLE_CLIENT_ID is missing!")
 
 oauth = OAuth()
@@ -71,23 +68,27 @@ oauth.register(
     client_id=settings.GOOGLE_CLIENT_ID,
     client_secret=settings.GOOGLE_CLIENT_SECRET,
     server_metadata_url="https://accounts.google.com/.well-known/openid-configuration",
-    client_kwargs={
-        "scope": "openid email profile",
-    }
+    client_kwargs={"scope": "openid email profile"},
 )
 
 app.state.oauth = oauth
 
 # =========================
-# 5. Database Initial
+# 5. Database Initial (สำคัญมาก)
 # =========================
-# สร้างตารางอัตโนมัติ (เฉพาะตอนที่ยังไม่มี)
-Base.metadata.create_all(bind=engine)
+# ❌ ห้าม create_all ตอน import
+# ✅ ย้ายมารันตอน startup แทน
+@app.on_event("startup")
+def on_startup():
+    try:
+        Base.metadata.create_all(bind=engine)
+        print("✅ Database tables checked/created")
+    except Exception as e:
+        print(f"❌ Database init failed: {e}")
 
 # =========================
 # 6. Routes & Endpoints
 # =========================
-
 @app.get("/")
 def root():
     return {
@@ -106,7 +107,9 @@ def debug_cookie(request: Request):
         "session": request.session if "session" in request.scope else "no session"
     }
 
-# รวม Router ต่างๆ
-app.include_router(predict_router, prefix="/api/v1") # แนะนำให้ใส่ prefix เพื่อความเป็นระเบียบ
+# =========================
+# 7. Routers
+# =========================
+app.include_router(predict_router, prefix="/api/v1")
 app.include_router(auth_router, prefix="/auth")
 app.include_router(review_router, prefix="/api/v1")
