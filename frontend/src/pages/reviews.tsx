@@ -2,8 +2,10 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
 
-// ✅ แนะนำ: ในอนาคตควรเปลี่ยนเป็น process.env.NEXT_PUBLIC_API_BASE
-const API = "http://localhost:8000";
+/* =============================================
+   ✅ ใช้ค่าจาก .env.local เพื่อรองรับ Render
+   ============================================= */
+const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 export default function Reviews() {
   const router = useRouter();
@@ -13,7 +15,6 @@ export default function Reviews() {
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState<number | null>(null);
 
-  // ✅ จัดการเรื่อง Query String ให้รองรับทั้งแบบเลือกชนิดผัก หรือดูทั้งหมด
   const normalizedClass =
     typeof className === "string"
       ? className
@@ -26,7 +27,7 @@ export default function Reviews() {
 
     setLoading(true);
 
-    // ✅ ถ้ามี normalizedClass ให้ไปที่ path กรองชนิดผัก ถ้าไม่มีให้ดึง list ทั้งหมด
+    // ✅ ปรับ URL ให้ตรงกับโครงสร้าง Backend
     const url = normalizedClass
       ? `${API}/reviews/class/${encodeURIComponent(normalizedClass)}`
       : `${API}/reviews/all/list`;
@@ -37,7 +38,6 @@ export default function Reviews() {
         return res.json();
       })
       .then((data) => {
-        console.log("REVIEWS DATA:", data);
         setReviews(Array.isArray(data) ? data : []);
         setLoading(false);
       })
@@ -54,128 +54,132 @@ export default function Reviews() {
         {/* 🔙 ปุ่มกลับหน้าแรก */}
         <Link
           href="/"
-          className="inline-block mb-8 bg-white/10 hover:bg-white/20 px-5 py-2 rounded-xl text-sm transition"
+          className="inline-block mb-8 bg-white/10 hover:bg-white/20 px-5 py-2 rounded-xl text-sm transition border border-white/5"
         >
           ← กลับหน้าแรก
         </Link>
 
-        <h1 className="text-3xl font-bold mb-6 text-center">
-          {normalizedClass ? `รีวิวของ ${normalizedClass}` : "รีวิวทั้งหมด"}
+        <h1 className="text-3xl md:text-4xl font-bold mb-6 text-center text-green-200">
+          {normalizedClass ? `รีวิวของ "${normalizedClass}"` : "รีวิวผักพื้นเมืองทั้งหมด"}
         </h1>
 
-        {/* 🌟 ปุ่มเคลียร์ตัวกรอง (แสดงเมื่อมีการเลือกชนิดผัก) */}
         {normalizedClass && (
           <div className="text-center mb-10">
             <Link
               href="/reviews"
-              className="bg-yellow-400 hover:bg-yellow-500 text-black px-5 py-2 rounded-xl text-sm font-medium transition shadow-lg"
+              className="bg-yellow-400 hover:bg-yellow-500 text-black px-6 py-2 rounded-xl text-sm font-bold transition shadow-lg inline-block"
             >
-              ดูรีวิวทั้งหมด
+              แสดงรีวิวผักทุกชนิด
             </Link>
           </div>
         )}
 
-        {loading && (
-          <p className="text-center text-green-200 mb-10 animate-pulse">
-            กำลังโหลดข้อมูล...
-          </p>
-        )}
+        {loading ? (
+          <div className="flex flex-col items-center justify-center py-20">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mb-4"></div>
+            <p className="text-green-200 animate-pulse">กำลังดึงข้อมูลรีวิวจากระบบ...</p>
+          </div>
+        ) : reviews.length === 0 ? (
+          <div className="text-center py-20 bg-black/10 rounded-3xl border border-dashed border-white/20">
+            <p className="text-green-200 italic text-lg">ยังไม่มีรีวิวสำหรับรายการนี้ในขณะนี้</p>
+          </div>
+        ) : (
+          <div className="space-y-8">
+            {reviews.map((r) => {
+              const lat = r.latitude != null ? Number(r.latitude) : null;
+              const lng = r.longitude != null ? Number(r.longitude) : null;
 
-        {!loading && reviews.length === 0 && (
-          <p className="text-center text-green-200 mb-10 italic">
-            ยังไม่มีรีวิวสำหรับรายการนี้
-          </p>
-        )}
-
-        <div className="space-y-10">
-          {reviews.map((r) => {
-            const lat = r.latitude != null ? Number(r.latitude) : null;
-            const lng = r.longitude != null ? Number(r.longitude) : null;
-
-            return (
-              <div
-                key={r.id}
-                className="bg-white/10 backdrop-blur-xl border border-white/20 p-8 rounded-3xl shadow-xl transition hover:border-white/40"
-              >
-                {/* Header: ชื่อผัก + ดาว */}
-                <div className="flex justify-between items-center mb-4">
-                  <h2 className="text-xl font-semibold text-green-300">
-                    {r.class_name}
-                  </h2>
-                  <div className="text-yellow-400 text-lg">
-                    {"★".repeat(r.rating)}
-                    <span className="text-gray-400">
-                      {"★".repeat(5 - r.rating)}
-                    </span>
+              return (
+                <div
+                  key={r.id}
+                  className="bg-white/10 backdrop-blur-xl border border-white/20 p-6 md:p-8 rounded-3xl shadow-xl transition-all hover:bg-white/15"
+                >
+                  {/* Header: ชื่อผัก + ดาว */}
+                  <div className="flex flex-wrap justify-between items-center gap-4 mb-4">
+                    <h2 className="text-2xl font-bold text-green-300">
+                      {r.class_name}
+                    </h2>
+                    <div className="text-yellow-400 text-xl tracking-widest bg-black/20 px-4 py-1 rounded-full">
+                      {"★".repeat(r.rating)}
+                      <span className="opacity-30">{"★".repeat(5 - r.rating)}</span>
+                    </div>
                   </div>
-                </div>
 
-                {/* ข้อความรีวิว */}
-                <p className="text-green-100 mb-4 leading-relaxed">
-                  {r.review_text}
-                </p>
+                  {/* ข้อความรีวิว */}
+                  <div className="bg-black/10 p-4 rounded-2xl mb-4">
+                    <p className="text-green-50 text-lg leading-relaxed italic">
+                      "{r.review_text}"
+                    </p>
+                  </div>
 
-                {/* ข้อมูลผู้รีวิว */}
-                <div className="text-sm text-green-300/80 mb-6">
-                  โดย {r.username || "ผู้ใช้ทั่วไป"} •{" "}
-                  {new Date(r.created_at).toLocaleString("th-TH")}
-                </div>
+                  {/* ข้อมูลผู้รีวิว */}
+                  <div className="flex items-center gap-2 text-sm text-green-300/80 mb-6 font-light">
+                    <span>👤 โดย {r.username || r.full_name || "ผู้ใช้ทั่วไป"}</span>
+                    <span>•</span>
+                    <span>📅 {new Date(r.created_at).toLocaleDateString("th-TH", {
+                      day: 'numeric', month: 'long', year: 'numeric'
+                    })}</span>
+                  </div>
 
-                {/* ส่วนแสดงแผนที่ (ถ้ามีพิกัด) */}
-                {lat !== null && lng !== null && (
-                  <>
-                    <button
-                      onClick={() => setExpanded(expanded === r.id ? null : r.id)}
-                      className="bg-green-500 hover:bg-green-600 px-5 py-2 rounded-xl text-sm font-medium transition mb-4 shadow-md"
-                    >
-                      {expanded === r.id ? "🔼 ซ่อนรายละเอียด" : "📍 ดูสถานที่เก็บ"}
-                    </button>
+                  {/* ส่วนแสดงแผนที่ */}
+                  {lat !== null && lng !== null && (
+                    <div className="mt-4">
+                      <button
+                        onClick={() => setExpanded(expanded === r.id ? null : r.id)}
+                        className={`px-5 py-2 rounded-xl text-sm font-bold transition flex items-center gap-2 shadow-md ${
+                          expanded === r.id ? "bg-red-500 hover:bg-red-600" : "bg-green-500 hover:bg-green-600"
+                        }`}
+                      >
+                        {expanded === r.id ? "🔼 ปิดแผนที่" : "📍 ดูพิกัดที่พบเจอ"}
+                      </button>
 
-                    {expanded === r.id && (
-                      <div className="space-y-5 mt-4 pt-4 border-t border-white/10 animate-fadeIn">
-                        {r.place_name && (
-                          <div className="text-green-200 font-medium flex items-center gap-2">
-                            <span>📍</span> {r.place_name}
+                      {expanded === r.id && (
+                        <div className="mt-5 space-y-4 animate-fadeIn">
+                          {r.place_name && (
+                            <div className="text-green-200 font-medium flex items-center gap-2 bg-white/5 p-3 rounded-lg border border-white/10">
+                              <span className="text-xl">📍</span> {r.place_name}
+                            </div>
+                          )}
+
+                          <div className="overflow-hidden rounded-2xl border-2 border-white/20 shadow-2xl bg-gray-800 h-[250px] relative">
+                            {process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY ? (
+                              <img
+                                src={`https://maps.googleapis.com/maps/api/staticmap?center=${lat},${lng}&zoom=15&size=800x400&markers=color:red|label:V|${lat},${lng}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY}`}
+                                className="w-full h-full object-cover"
+                                alt="Location Map"
+                              />
+                            ) : (
+                              <div className="flex items-center justify-center h-full text-red-300 p-10 text-center">
+                                ⚠️ กรุณาตั้งค่า Google Maps Key ใน .env เพื่อแสดงแผนที่
+                              </div>
+                            )}
                           </div>
-                        )}
 
-                        <div className="text-xs text-green-400 font-mono">
-                          Lat: {lat.toFixed(6)} | Lng: {lng.toFixed(6)}
+                          <div className="flex flex-wrap gap-3">
+                            <button
+                              onClick={() => window.open(`https://www.google.com/maps?q=${lat},${lng}`, "_blank")}
+                              className="bg-emerald-600 hover:bg-emerald-700 px-6 py-2 rounded-xl font-bold transition flex items-center gap-2 text-sm shadow-lg"
+                            >
+                              🧭 นำทางด้วย Google Maps
+                            </button>
+                            <span className="text-xs text-green-400/60 flex items-center font-mono">
+                              Coordinates: {lat.toFixed(5)}, {lng.toFixed(5)}
+                            </span>
+                          </div>
                         </div>
-
-                        {/* Google Static Maps */}
-                        {process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY ? (
-                          <img
-                            src={`https://maps.googleapis.com/maps/api/staticmap?center=${lat},${lng}&zoom=14&size=600x300&markers=color:red|${lat},${lng}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY}`}
-                            className="rounded-2xl shadow-lg w-full object-cover border border-white/20"
-                            alt="Map Location"
-                          />
-                        ) : (
-                          <div className="p-4 bg-red-500/20 border border-red-500/50 rounded-xl text-red-200 text-sm">
-                            ⚠️ กรุณาตั้งค่า Google Maps API Key เพื่อแสดงแผนที่
-                          </div>
-                        )}
-
-                        <button
-                          onClick={() =>
-                            window.open(
-                              `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`,
-                              "_blank"
-                            )
-                          }
-                          className="bg-emerald-600 hover:bg-emerald-700 px-6 py-2 rounded-xl font-medium transition flex items-center gap-2"
-                        >
-                          🧭 เปิดใน Google Maps
-                        </button>
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
-            );
-          })}
-        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
+      
+      <footer className="mt-20 text-center text-green-400/50 text-xs">
+        LannaVeg Project | University of Phayao
+      </footer>
     </div>
   );
 }
