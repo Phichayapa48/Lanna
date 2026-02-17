@@ -4,29 +4,36 @@ import Head from "next/head";
 import { motion } from "framer-motion";
 
 /* =============================================
-   ✅ ตัวแปรกลางสำหรับเรียก API (ดึงจาก .env.local)
+   ✅ แก้เป็น NEXT_PUBLIC_API_URL ให้ตรงกับ .env เป๊ะๆ
    ============================================= */
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8000";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 export default function Home() {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // ใช้ Path ใหม่ /auth/me เพื่อความปลอดภัยและเป็นระเบียบตามที่เพื่อนแก้มา
+    // ดึงข้อมูล User
     fetch(`${API_BASE}/auth/me`, {
       credentials: "include",
     })
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) throw new Error("Not logged in");
+        return res.json();
+      })
       .then((data) => {
-        setUser(data.user);
+        // ดักเอาไว้เผื่อเพื่อนส่งมาทั้งก้อน หรือส่งซ้อนใน .user
+        setUser(data.user || data); 
         setLoading(false);
       })
-      .catch(() => setLoading(false));
+      .catch(() => {
+        setUser(null);
+        setLoading(false);
+      });
   }, []);
 
   const handleLogout = () => {
-    // เปลี่ยนไปใช้ Path /auth/logout
+    // ใช้ Path Logout ที่เพื่อนตั้งไว้
     window.location.href = `${API_BASE}/auth/logout`;
   };
 
@@ -37,22 +44,13 @@ export default function Home() {
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </Head>
 
-      <div
-        className="
-          min-h-screen transition-all duration-500
-          bg-gradient-to-br
-          from-green-900 via-green-800 to-emerald-700
-          dark:from-gray-900 dark:via-gray-800 dark:to-gray-900
-          text-white
-        "
-      >
+      <div className="min-h-screen bg-gradient-to-br from-green-900 via-green-800 to-emerald-700 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 text-white transition-all duration-500">
+        
         {/* ================= NAVBAR ================= */}
-        <nav className="flex justify-between items-center px-10 py-6 bg-black/20 backdrop-blur-lg sticky top-0 z-50">
-          <h1 className="text-2xl font-bold text-green-300">
-            🌿 LannaVeg
-          </h1>
+        <nav className="flex justify-between items-center px-6 md:px-10 py-6 bg-black/20 backdrop-blur-lg sticky top-0 z-50">
+          <h1 className="text-2xl font-bold text-green-300">🌿 LannaVeg</h1>
 
-          <div className="space-x-6 text-sm flex items-center">
+          <div className="space-x-4 md:space-x-6 text-sm flex items-center">
             <Link href="/classify" className="hover:text-green-300 transition">Classify</Link>
             <Link href="/map" className="hover:text-green-300 transition">Map</Link>
             <Link href="/reviews" className="hover:text-green-300 transition">รีวิวทั้งหมด</Link>
@@ -60,14 +58,13 @@ export default function Home() {
             {loading ? (
               <span className="animate-pulse">Loading...</span>
             ) : user ? (
-              <div className="flex items-center space-x-4">
-                <span className="text-green-300 font-semibold bg-white/10 px-3 py-1 rounded-full">
-                  👤 {user.full_name}
+              <div className="flex items-center space-x-3 md:space-x-4">
+                <span className="hidden md:inline text-green-300 font-semibold bg-white/10 px-3 py-1 rounded-full">
+                  👤 {user.full_name || user.username || "User"}
                 </span>
-
                 <button
                   onClick={handleLogout}
-                  className="bg-red-500 hover:bg-red-600 px-4 py-2 rounded-lg transition shadow-md"
+                  className="bg-red-500 hover:bg-red-600 px-4 py-2 rounded-lg transition shadow-md text-xs md:text-sm"
                 >
                   Logout
                 </button>
@@ -84,12 +81,11 @@ export default function Home() {
         </nav>
 
         {/* ================= HERO ================= */}
-        <section className="text-center py-24 px-6 relative overflow-hidden">
+        <section className="text-center py-20 md:py-32 px-6">
           <motion.h2
-            initial={{ opacity: 0, y: -40 }}
+            initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
-            className="text-5xl md:text-6xl font-extrabold mb-6"
+            className="text-4xl md:text-6xl font-extrabold mb-6"
           >
             ระบบจำแนกผักช่อดอกพื้นเมืองภาคเหนือ
           </motion.h2>
@@ -97,21 +93,16 @@ export default function Home() {
           <motion.p
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ delay: 0.4 }}
-            className="text-lg md:text-xl max-w-2xl mx-auto text-green-200 mb-10"
+            transition={{ delay: 0.3 }}
+            className="text-lg text-green-200 mb-10 max-w-2xl mx-auto"
           >
             อัปโหลดภาพเพื่อให้ AI วิเคราะห์ชนิดของผักพื้นเมืองแบบแม่นยำ
           </motion.p>
 
-          <motion.div
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: 0.6 }}
-            className="flex justify-center"
-          >
+          <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
             <Link
               href="/classify"
-              className="bg-green-500 hover:bg-green-600 px-8 py-4 rounded-xl font-semibold shadow-lg text-xl transition-transform hover:scale-105"
+              className="bg-green-500 hover:bg-green-600 px-10 py-4 rounded-2xl font-bold shadow-xl text-xl transition inline-block"
             >
               🔍 เริ่มจำแนกผัก
             </Link>
@@ -119,42 +110,27 @@ export default function Home() {
         </section>
 
         {/* ================= GALLERY ================= */}
-        <section className="py-20 bg-white text-gray-800 dark:bg-gray-900 dark:text-white rounded-t-[3rem] shadow-2xl">
-          <h3 className="text-3xl font-bold text-center mb-12">
-            🖼 ตัวอย่างผักพื้นเมือง
-          </h3>
-
+        <section className="py-20 bg-white dark:bg-gray-900 text-gray-800 dark:text-white rounded-t-[3rem] shadow-2xl">
+          <h3 className="text-3xl font-bold text-center mb-12">🖼 ตัวอย่างผักพื้นเมือง</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto px-6">
             {[
               { name: "มะแข่น", img: "/images/makhwaen2.png" },
               { name: "นางแลว", img: "/images/nanglaew2.png" },
               { name: "ผักเผ็ด", img: "/images/phak_phet3.png" },
             ].map((item, i) => (
-              <motion.div
-                key={i}
-                whileHover={{ y: -10 }}
-                className="bg-gray-100 dark:bg-gray-800 p-6 rounded-3xl shadow-lg border border-transparent hover:border-green-500/50 transition-all"
-              >
+              <div key={i} className="bg-gray-100 dark:bg-gray-800 p-6 rounded-3xl shadow-lg border border-transparent hover:border-green-500/50 transition-all text-center">
                 <div className="overflow-hidden rounded-2xl mb-4 h-48">
-                   <img
-                    src={item.img}
-                    alt={item.name}
-                    className="h-full w-full object-cover transition-transform duration-500 hover:scale-110"
-                  />
+                   <img src={item.img} alt={item.name} className="h-full w-full object-cover hover:scale-110 transition duration-500" />
                 </div>
-
-                <h4 className="text-center font-bold text-xl text-green-700 dark:text-green-400">
-                  {item.name}
-                </h4>
-              </motion.div>
+                <h4 className="font-bold text-xl text-green-700 dark:text-green-400">{item.name}</h4>
+              </div>
             ))}
           </div>
         </section>
 
         {/* ================= FOOTER ================= */}
-        <footer className="text-center py-12 bg-green-900 dark:bg-black text-green-300 text-sm border-t border-white/5">
-          <p className="mb-2">© 2026 LannaVeg Project | University of Phayao</p>
-          <p className="opacity-60 font-light italic">สำรวจคุณค่าผักพื้นเมืองด้วยปัญญาประดิษฐ์</p>
+        <footer className="text-center py-10 bg-green-950 text-green-300 text-sm">
+          <p>© 2026 LannaVeg Project | University of Phayao</p>
         </footer>
       </div>
     </>
