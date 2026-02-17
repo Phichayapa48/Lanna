@@ -1,20 +1,21 @@
 import "../styles/globals.css";
 import type { AppProps } from "next/app";
-import Navbar from "../components/Navbar"; // 🔥 ยังเก็บไว้
 import { useEffect, useState } from "react";
+import Head from "next/head";
 
 export default function MyApp({ Component, pageProps }: AppProps) {
   const [theme, setTheme] = useState<"light" | "dark">("light");
   const [mounted, setMounted] = useState(false);
 
+  // ✅ 1. จัดการเรื่อง Theme เมื่อ Component เริ่มทำงาน
   useEffect(() => {
     setMounted(true);
-
-    const savedTheme =
-      (localStorage.getItem("theme") as "light" | "dark") || "light";
-
+    
+    // ดึงค่าจาก LocalStorage ถ้าไม่มีให้ใช้ light
+    const savedTheme = (localStorage.getItem("theme") as "light" | "dark") || "light";
     setTheme(savedTheme);
-
+    
+    // จัดการ Class ใน Document เพื่อให้ Tailwind dark mode ทำงาน
     if (savedTheme === "dark") {
       document.documentElement.classList.add("dark");
     } else {
@@ -22,28 +23,43 @@ export default function MyApp({ Component, pageProps }: AppProps) {
     }
   }, []);
 
+  // ✅ 2. ฟังก์ชันสลับ Theme
   const toggleTheme = () => {
     const newTheme = theme === "light" ? "dark" : "light";
-
     setTheme(newTheme);
     localStorage.setItem("theme", newTheme);
 
-    if (newTheme === "dark") {
-      document.documentElement.classList.add("dark");
-    } else {
-      document.documentElement.classList.remove("dark");
-    }
+    // ใช้ toggle เพื่อความกริบของโค้ด
+    document.documentElement.classList.toggle("dark", newTheme === "dark");
   };
 
-  if (!mounted) return null;
+  // ✅ 3. ป้องกัน Hydration Mismatch (หน้าจอกระพริบตอนโหลด)
+  if (!mounted) {
+    return null;
+  }
 
   return (
     <>
-      {/* 🔥 ปิด Navbar ตัวบนไว้ก่อน เพื่อไม่ให้ซ้อน */}
-      {/* <Navbar theme={theme} toggleTheme={toggleTheme} /> */}
+      <Head>
+        <title>LannaVeg - ระบบจำแนกผักพื้นเมือง</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+      </Head>
 
-      {/* ✅ ส่ง theme และ toggleTheme ไปให้ทุกหน้าแทน */}
-      <Component {...pageProps} theme={theme} toggleTheme={toggleTheme} />
+      <div className={`min-h-screen transition-colors duration-300 ${theme === 'dark' ? 'bg-gray-900' : 'bg-white'}`}>
+        {/* 🔥 ถ้าแอ๋มอยากเปิด Navbar ให้โชว์ทุกหน้า 
+           ให้สร้างไฟล์ Navbar.tsx แล้วมา Un-comment ตรงนี้ได้เลย 
+        */}
+        {/* <Navbar theme={theme} toggleTheme={toggleTheme} /> */}
+
+        <main>
+          {/* ✅ ส่ง theme และ toggleTheme เข้าไปใน pageProps เพื่อให้หน้าลูกดึงไปใช้ได้ */}
+          <Component 
+            {...pageProps} 
+            theme={theme} 
+            toggleTheme={toggleTheme} 
+          />
+        </main>
+      </div>
     </>
   );
 }
