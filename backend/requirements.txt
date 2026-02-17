@@ -1,44 +1,38 @@
-# --- ทรัพยากรหลักสำหรับ AI (บังคับใช้เวอร์ชัน CPU เพื่อให้ขนาดไม่เกิน limit) ---
---find-links https://download.pytorch.org/whl/cpu/torch_stable.html
-torch>=2.2.0
-torchvision>=0.17.0
-torchaudio>=2.2.0
+# --- บังคับใช้เวอร์ชัน CPU เพียวๆ (ต้องระบุ +cpu ให้ชัดเจน) ---
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch==2.2.1+cpu
+torchvision==0.17.1+cpu
+torchaudio==2.2.1+cpu
 
-# --- Core Computer Vision & AI ---
+# --- Core Computer Vision (ตัดตัวหนักออก) ---
 ultralytics==8.4.14
-# ใช้เฉพาะ headless สำหรับ server
-opencv-python-headless==4.13.0.92
-ultralytics-thop==2.0.18
-pillow==12.1.0
+opencv-python-headless==4.10.0.84
+pillow==10.3.0
 
 # --- Backend & API ---
-fastapi==0.128.0
-uvicorn==0.40.0
-gunicorn==25.1.0
-python-multipart==0.0.22
-python-dotenv==1.2.1
+fastapi==0.111.0
+uvicorn[standard]==0.30.1
+gunicorn==22.0.0
+python-multipart==0.0.9
+python-dotenv==1.0.1
 
-# --- Database & Integration (Supabase) ---
-supabase==2.28.0
-postgrest==2.28.0
-realtime==2.28.0
-storage3==2.28.0
-supabase-auth==2.28.0
-supabase-functions==2.28.0
+# --- Database & Integration ---
+# (ใช้แค่ supabase ตัวเดียวพ่วงตัวอื่นมาให้เอง ไม่ต้องแยกบรรทัดเยอะครับ)
+supabase==2.5.0
 httpx==0.27.0
 
-# --- Data Processing (เลือกเฉพาะที่จำเป็น) ---
-numpy>=1.26.0
-pandas==3.0.0
-scipy>=1.12.0
-scikit-learn>=1.4.2
+# --- Data Processing ---
+# (ลดเวอร์ชันลงนิดเพื่อความเสถียรของพื้นที่)
+numpy>=1.24.0,<2.0.0
+pandas>=2.0.0
+scikit-learn>=1.4.0
 
 # --- Utilities & Security ---
-pydantic==2.12.5
-cryptography==46.0.5
-PyJWT==2.11.0
-python-jose==3.5.0
-Authlib==1.3.0
-bcrypt==5.0.0
-requests==2.32.5
-PyYAML==6.0.3
+pydantic>=2.0.0
+cryptography>=42.0.0
+PyJWT==2.8.0
+python-jose[cryptography]==3.3.0
+Authlib==1.3.1
+bcrypt==4.1.3
+requests==2.32.3
+PyYAML==6.0.1
