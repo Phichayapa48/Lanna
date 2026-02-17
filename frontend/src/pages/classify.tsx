@@ -7,7 +7,12 @@ const MapComponent = dynamic(() => import("../components/MapPopup"), {
   ssr: false,
 });
 
-const API_BASE = "http://localhost:8000";
+/* =========================
+   ✅ ใช้ Environment Variable
+   ========================= */
+const API_BASE =
+  process.env.NEXT_PUBLIC_API_BASE ||
+  "https://lanna-backend.onrender.com";
 
 type PredictionResult = {
   class_name: string;
@@ -64,13 +69,19 @@ export default function Classify() {
       setError("");
       setSuccess("");
 
-      const res = await fetch(`${API_BASE}/predict/`, {
+      /* =========================
+         ✅ เรียก path ถูกต้อง
+         ========================= */
+      const res = await fetch(`${API_BASE}/api/v1/predict/`, {
         method: "POST",
         body: formData,
         credentials: "include",
       });
 
-      if (!res.ok) throw new Error("เกิดข้อผิดพลาดในการทำนาย");
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(text || "เกิดข้อผิดพลาดในการทำนาย");
+      }
 
       const data = await res.json();
       setResult(data);
@@ -80,7 +91,7 @@ export default function Classify() {
       }
 
     } catch (err: any) {
-      setError(err.message);
+      setError(err.message || "Load failed");
     } finally {
       setLoading(false);
     }
@@ -163,7 +174,6 @@ export default function Classify() {
 
             <div className="p-10 space-y-8 text-gray-200">
 
-              {/* ✅ แสดงรูปภาพ */}
               {vegetable.images && (
                 <div className="flex justify-center gap-4 flex-wrap">
                   {vegetable.images.map((img: string, index: number) => (
