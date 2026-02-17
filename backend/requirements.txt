@@ -1,0 +1,15 @@
+fastapi
+uvicorn
+torch
+torchvision
+pillow
+sqlalchemy
+psycopg2-binary
+python-dotenv
+gunicorn
+passlib[bcrypt]==1.7.4
+bcrypt
+python-jose[cryptography]
+python-multipart
+authlib==1.3.0
+httpx==0.27.0
