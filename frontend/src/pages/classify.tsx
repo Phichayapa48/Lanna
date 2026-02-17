@@ -67,7 +67,6 @@ export default function Classify() {
       setError("");
       setSuccess("");
 
-      // ✅ ยิงไปที่ Endpoint Predict บน Render
       const res = await fetch(`${API_BASE}/api/v1/predict/`, {
         method: "POST",
         body: formData,
@@ -94,15 +93,24 @@ export default function Classify() {
     }
   };
 
+  /* =============================================
+     🛠️ แก้ไขส่วน handleSubmitReview เพื่อแก้ Error Not Found
+     ============================================= */
   const handleSubmitReview = async () => {
     if (!result) return;
 
     try {
       setReviewLoading(true);
 
-      const res = await fetch(`${API_BASE}/reviews/`, {
+      // ✅ ตัดเครื่องหมาย / ตัวสุดท้ายออก (Backend ส่วนใหญ่บน Render/FastAPI จะใช้แบบไม่มี /)
+      const cleanApiBase = API_BASE.endsWith('/') ? API_BASE.slice(0, -1) : API_BASE;
+      
+      const res = await fetch(`${cleanApiBase}/reviews`, { 
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "Accept": "application/json"
+        },
         credentials: "include",
         body: JSON.stringify({
           class_name: result.class_name,
@@ -111,20 +119,25 @@ export default function Classify() {
         }),
       });
 
-      const data = await res.json();
-
       if (!res.ok) {
-        alert(data.detail || "เกิดข้อผิดพลาดในการบันทึก");
-        return;
+        // ดักกรณี 404 โดยเฉพาะ
+        if (res.status === 404) {
+          throw new Error("ไม่พบเส้นทางบันทึกรีวิว (404 Not Found) กรุณาเช็ค API Path");
+        }
+        const errorData = await res.json().catch(() => ({ detail: "บันทึกไม่สำเร็จ" }));
+        throw new Error(errorData.detail || "เกิดข้อผิดพลาดในการบันทึก");
       }
 
-      // ✅ ส่งไปหน้าแผนที่พิกัดที่เพิ่งรีวิว
+      const data = await res.json();
+
+      // บันทึกสำเร็จแล้วค่อยไปหน้าแผนที่
       router.push(
         `/review-map?review_id=${data.review_id}&class=${result.class_name}`
       );
 
-    } catch (err) {
-      alert("ไม่สามารถบันทึกรีวิวได้");
+    } catch (err: any) {
+      console.error("Review Error:", err);
+      alert(err.message || "ไม่สามารถบันทึกรีวิวได้");
     } finally {
       setReviewLoading(false);
     }
