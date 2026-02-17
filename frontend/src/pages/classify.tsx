@@ -9,7 +9,7 @@ const MapComponent = dynamic(() => import("../components/MapPopup"), {
 });
 
 /* =============================================
-   ✅ แก้ให้ตรงกับ .env.local: NEXT_PUBLIC_API_URL
+   ✅ ใช้ค่าจาก .env ถ้าไม่มีค่อยใช้ localhost (เพื่อให้รันบน Render ได้)
    ============================================= */
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -67,16 +67,14 @@ export default function Classify() {
       setError("");
       setSuccess("");
 
-      const res = await fetch(`${API_BASE}/api/v1/predict/`, {
+      // ✅ ใช้ Path /predict/ (มีขีดปิดท้าย) ตามที่เพื่อนบอกว่าได้
+      const res = await fetch(`${API_BASE}/predict/`, {
         method: "POST",
         body: formData,
         credentials: "include",
       });
 
-      if (!res.ok) {
-        const text = await res.text();
-        throw new Error(text || "เกิดข้อผิดพลาดในการทำนาย");
-      }
+      if (!res.ok) throw new Error("เกิดข้อผิดพลาดในการทำนาย");
 
       const data = await res.json();
       setResult(data);
@@ -86,31 +84,22 @@ export default function Classify() {
       }
 
     } catch (err: any) {
-      console.error("Predict Error:", err);
-      setError(err.message || "เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ (กำลังปลุก Server บน Render...)");
+      setError(err.message || "เชื่อมต่อเซิร์ฟเวอร์ไม่ได้");
     } finally {
       setLoading(false);
     }
   };
 
-  /* =============================================
-     🛠️ แก้ไขส่วน handleSubmitReview เพื่อแก้ Error Not Found
-     ============================================= */
   const handleSubmitReview = async () => {
     if (!result) return;
 
     try {
       setReviewLoading(true);
 
-      // ✅ ตัดเครื่องหมาย / ตัวสุดท้ายออก (Backend ส่วนใหญ่บน Render/FastAPI จะใช้แบบไม่มี /)
-      const cleanApiBase = API_BASE.endsWith('/') ? API_BASE.slice(0, -1) : API_BASE;
-      
-      const res = await fetch(`${cleanApiBase}/reviews`, { 
+      // ✅ ใช้ Path /reviews/ (มีขีดปิดท้าย) ตามที่เพื่อนบอกว่าได้
+      const res = await fetch(`${API_BASE}/reviews/`, {
         method: "POST",
-        headers: { 
-          "Content-Type": "application/json",
-          "Accept": "application/json"
-        },
+        headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({
           class_name: result.class_name,
@@ -119,25 +108,20 @@ export default function Classify() {
         }),
       });
 
-      if (!res.ok) {
-        // ดักกรณี 404 โดยเฉพาะ
-        if (res.status === 404) {
-          throw new Error("ไม่พบเส้นทางบันทึกรีวิว (404 Not Found) กรุณาเช็ค API Path");
-        }
-        const errorData = await res.json().catch(() => ({ detail: "บันทึกไม่สำเร็จ" }));
-        throw new Error(errorData.detail || "เกิดข้อผิดพลาดในการบันทึก");
-      }
-
       const data = await res.json();
 
-      // บันทึกสำเร็จแล้วค่อยไปหน้าแผนที่
+      if (!res.ok) {
+        alert(data.detail || "เกิดข้อผิดพลาดในการบันทึก");
+        return;
+      }
+
+      // ✅ Redirect ไปหน้าแผนที่ตาม Logic เพื่อน
       router.push(
         `/review-map?review_id=${data.review_id}&class=${result.class_name}`
       );
 
-    } catch (err: any) {
-      console.error("Review Error:", err);
-      alert(err.message || "ไม่สามารถบันทึกรีวิวได้");
+    } catch (err) {
+      alert("ไม่สามารถบันทึกรีวิวได้");
     } finally {
       setReviewLoading(false);
     }
@@ -213,7 +197,6 @@ export default function Classify() {
             </div>
 
             <div className="p-8 md:p-10 space-y-8 text-gray-200">
-
               {vegetable.images && (
                 <div className="flex justify-center gap-4 flex-wrap">
                   {vegetable.images.map((img: string, index: number) => (
@@ -254,7 +237,7 @@ export default function Classify() {
                 </div>
               </div>
 
-              {/* 🌟 ส่วนเขียนรีวิว */}
+              {/* 🌟 ส่วนเขียนรีวิว (UI เดิมของแอ๋ม) */}
               <div className="mt-10 pt-8 border-t border-white/10 text-center">
                 {!showReview ? (
                   <button
@@ -308,7 +291,6 @@ export default function Classify() {
                   </div>
                 )}
               </div>
-
             </div>
           </div>
         )}
