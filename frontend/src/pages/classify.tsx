@@ -8,9 +8,6 @@ const MapComponent = dynamic(() => import("../components/MapPopup"), {
   ssr: false,
 });
 
-/* =============================================
-   ✅ ใช้ค่าจาก .env ถ้าไม่มีค่อยใช้ localhost (เพื่อให้รันบน Render ได้)
-   ============================================= */
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 type PredictionResult = {
@@ -65,16 +62,29 @@ export default function Classify() {
     try {
       setLoading(true);
       setError("");
-      setSuccess("");
-
-      // ✅ ใช้ Path /predict/ (มีขีดปิดท้าย) ตามที่เพื่อนบอกว่าได้
-      const res = await fetch(`${API_BASE}/api/v1/predict/`, { ... })
+      
+      // ✅ แก้ไข Syntax ตรงนี้: เอา { ... }) ที่เกินออก
+      const res = await fetch(`${API_BASE}/api/v1/predict/`, {
         method: "POST",
         body: formData,
         credentials: "include",
       });
 
-      if (!res.ok) throw new Error("เกิดข้อผิดพลาดในการทำนาย");
+      if (!res.ok) {
+        // ลองเช็คเผื่อเพื่อนเปลี่ยนเป็น /predict/ (ไม่มี api/v1)
+        if (res.status === 404) {
+             const retryRes = await fetch(`${API_BASE}/predict/`, {
+                method: "POST",
+                body: formData,
+                credentials: "include",
+             });
+             if (!retryRes.ok) throw new Error("ไม่พบเส้นทางทำนายบน Server");
+             const data = await retryRes.json();
+             setResult(data);
+             return;
+        }
+        throw new Error("เกิดข้อผิดพลาดในการทำนาย");
+      }
 
       const data = await res.json();
       setResult(data);
@@ -95,9 +105,11 @@ export default function Classify() {
 
     try {
       setReviewLoading(true);
+      
+      // ล้างเครื่องหมาย / ท้ายสุดของ API_BASE เพื่อไม่ให้มันซ้อนกัน
+      const cleanBase = API_BASE.endsWith('/') ? API_BASE.slice(0, -1) : API_BASE;
 
-      // ✅ ใช้ Path /reviews/ (มีขีดปิดท้าย) ตามที่เพื่อนบอกว่าได้
-      const res = await fetch(`${API_BASE}/reviews/`, {
+      const res = await fetch(`${cleanBase}/reviews/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -115,7 +127,6 @@ export default function Classify() {
         return;
       }
 
-      // ✅ Redirect ไปหน้าแผนที่ตาม Logic เพื่อน
       router.push(
         `/review-map?review_id=${data.review_id}&class=${result.class_name}`
       );
@@ -136,14 +147,9 @@ export default function Classify() {
 
   return (
     <div className="min-h-screen transition-colors duration-300 bg-gradient-to-br from-green-900 via-green-800 to-emerald-700 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 text-white flex items-center justify-center px-6 py-16">
-
       <div className="bg-white/10 dark:bg-slate-800 backdrop-blur-xl rounded-3xl shadow-2xl p-6 md:p-10 w-full max-w-4xl border border-white/20">
-
         <div className="mb-6">
-          <Link
-            href="/"
-            className="inline-block bg-white/10 hover:bg-white/20 px-5 py-2 rounded-xl text-sm transition shadow-sm"
-          >
+          <Link href="/" className="inline-block bg-white/10 hover:bg-white/20 px-5 py-2 rounded-xl text-sm transition shadow-sm">
             ← กลับหน้าแรก
           </Link>
         </div>
@@ -187,7 +193,6 @@ export default function Classify() {
 
         {vegetable && result && (
           <div className="mt-14 rounded-3xl overflow-hidden bg-white/10 dark:bg-slate-900 border border-white/20 shadow-inner animate-fadeIn">
-
             <div className="bg-green-600 text-white p-8 text-center">
               <h2 className="text-3xl font-bold">{vegetable.thai_name}</h2>
               <p className="italic mt-2 opacity-90">{vegetable.scientific_name}</p>
@@ -237,7 +242,6 @@ export default function Classify() {
                 </div>
               </div>
 
-              {/* 🌟 ส่วนเขียนรีวิว (UI เดิมของแอ๋ม) */}
               <div className="mt-10 pt-8 border-t border-white/10 text-center">
                 {!showReview ? (
                   <button
@@ -249,7 +253,6 @@ export default function Classify() {
                 ) : (
                   <div className="mt-6 bg-white/5 p-6 rounded-3xl border border-white/10 text-left space-y-4">
                     <h3 className="text-xl font-semibold text-yellow-400">เขียนรีวิวและปักหมุดพิกัด</h3>
-                    
                     <div>
                       <label className="block text-sm mb-2">ให้คะแนนความพึงพอใจ</label>
                       <select
@@ -262,7 +265,6 @@ export default function Classify() {
                         ))}
                       </select>
                     </div>
-
                     <div>
                       <label className="block text-sm mb-2">รายละเอียดรีวิว</label>
                       <textarea
@@ -272,7 +274,6 @@ export default function Classify() {
                         className="w-full p-4 rounded-xl bg-gray-800 text-white border border-white/20 h-32 outline-none focus:border-green-500 transition"
                       />
                     </div>
-
                     <div className="flex gap-4">
                       <button
                         onClick={handleSubmitReview}
@@ -281,10 +282,7 @@ export default function Classify() {
                       >
                         {reviewLoading ? "⌛ กำลังบันทึก..." : "📍 บันทึกและเปิดแผนที่"}
                       </button>
-                      <button
-                        onClick={() => setShowReview(false)}
-                        className="px-6 py-3 rounded-xl bg-white/10 hover:bg-white/20 transition"
-                      >
+                      <button onClick={() => setShowReview(false)} className="px-6 py-3 rounded-xl bg-white/10 hover:bg-white/20 transition">
                         ยกเลิก
                       </button>
                     </div>
