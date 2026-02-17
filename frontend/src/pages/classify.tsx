@@ -68,7 +68,7 @@ export default function Classify() {
       setSuccess("");
 
       // ✅ ใช้ Path /predict/ (มีขีดปิดท้าย) ตามที่เพื่อนบอกว่าได้
-      const res = await fetch(`${API_BASE}/predict/`, {
+      const res = await fetch(`${API_BASE}/api/v1/predict/`, { ... })
         method: "POST",
         body: formData,
         credentials: "include",
