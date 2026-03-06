@@ -3,15 +3,21 @@ import React, { useState } from "react";
 export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  // ✅ ใช้ localhost เท่านั้น (ห้าม 127.0.0.1)
-  const API_BASE = "http://localhost:8000";
+  // ✅ เปลี่ยนจาก localhost เป็นตัวแปร Environment
+  // Next.js จะดึงค่าจาก NEXT_PUBLIC_API_URL ที่ตั้งไว้ใน Render/Local
+  const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
   const handleGoogleLogin = () => {
+    // ส่งไปที่ Backend URL จริงๆ
     window.location.href = `${API_BASE}/google/login`;
   };
 
-  const handleNormalLogin = async () => {
+  const handleNormalLogin = async (e) => {
+    e.preventDefault(); // 👈 ป้องกันหน้าจอ Refresh เองเวลาส่งฟอร์ม
+    setLoading(true);
+
     try {
       const res = await fetch(`${API_BASE}/login`, {
         method: "POST",
@@ -19,19 +25,22 @@ export default function Login() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ email, password }),
-        credentials: "include",
+        credentials: "include", // 👈 จำเป็นมากสำหรับ Auth (Cookie/Session)
       });
 
       const data = await res.json();
 
       if (res.ok) {
+        // เปลี่ยนหน้าเมื่อสำเร็จ (อาจใช้ useRouter ของ Next.js แทนได้)
         window.location.href = "/";
       } else {
         alert(data.detail || "Login failed");
       }
     } catch (err) {
       console.error(err);
-      alert("Server error");
+      alert("ไม่สามารถติดต่อ Server ได้ (ตรวจสอบ CORS หรือ URL)");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -57,55 +66,64 @@ export default function Login() {
       >
         <h2>Sign In</h2>
 
-        <input
-          type="email"
-          placeholder="Email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          style={{
-            width: "100%",
-            padding: "10px",
-            marginTop: "15px",
-            borderRadius: "8px",
-          }}
-        />
+        {/* ใช้อันนี้หุ้มเพื่อให้กด Enter แล้วส่งฟอร์มได้เลย */}
+        <form onSubmit={handleNormalLogin}>
+          <input
+            type="email"
+            placeholder="Email"
+            required
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            style={{
+              width: "100%",
+              padding: "10px",
+              marginTop: "15px",
+              borderRadius: "8px",
+              border: "1px solid #334155",
+              background: "#0f172a",
+              color: "white",
+            }}
+          />
 
-        <input
-          type="password"
-          placeholder="Password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          style={{
-            width: "100%",
-            padding: "10px",
-            marginTop: "10px",
-            borderRadius: "8px",
-          }}
-        />
+          <input
+            type="password"
+            placeholder="Password"
+            required
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            style={{
+              width: "100%",
+              padding: "10px",
+              marginTop: "10px",
+              borderRadius: "8px",
+              border: "1px solid #334155",
+              background: "#0f172a",
+              color: "white",
+            }}
+          />
 
-        {/* 🔵 Normal Login */}
+          <button
+            type="submit"
+            disabled={loading}
+            style={{
+              width: "100%",
+              padding: "10px",
+              marginTop: "15px",
+              borderRadius: "8px",
+              background: loading ? "#64748b" : "#2563eb",
+              color: "white",
+              border: "none",
+              cursor: loading ? "not-allowed" : "pointer",
+            }}
+          >
+            {loading ? "Signing in..." : "Sign In"}
+          </button>
+        </form>
+
+        <div style={{ margin: "20px 0", opacity: 0.6 }}>───── or ─────</div>
+
         <button
-          onClick={handleNormalLogin}
-          style={{
-            width: "100%",
-            padding: "10px",
-            marginTop: "15px",
-            borderRadius: "8px",
-            background: "#2563eb",
-            color: "white",
-            border: "none",
-            cursor: "pointer",
-          }}
-        >
-          Sign In
-        </button>
-
-        <div style={{ margin: "20px 0", opacity: 0.6 }}>
-          ───── or ─────
-        </div>
-
-        {/* 🔴 Google Login */}
-        <button
+          type="button"
           onClick={handleGoogleLogin}
           style={{
             width: "100%",
