@@ -21,7 +21,7 @@ async def login_via_google(request: Request):
     return await oauth.google.authorize_redirect(request, redirect_uri)
 
 # =========================
-# Google Callback
+# Google Callback (แก้ไขการ Set Cookie)
 # =========================
 @router.get("/google/callback", name="auth_callback")
 async def auth_callback(request: Request):
@@ -60,15 +60,15 @@ async def auth_callback(request: Request):
             status_code=302
         )
 
-        # ✅ ตั้งค่า Cookie ให้รองรับ Cross-Site บน Render
+        # ✅ แก้ไข: ถอด domain=".onrender.com" ออก เพื่อให้ Safari ยอมรับคุกกี้
+        # ✅ และใช้ samesite="none" (พิมพ์เล็ก) เพื่อความเป๊ะตามมาตรฐาน Starlette
         response.set_cookie(
             key="access_token",
             value=jwt_token,
             httponly=True,
-            secure=True,     # ต้องเป็น True สำหรับ HTTPS (Render)
-            samesite="None", # ต้องเป็น "None" (N ตัวใหญ่) เพื่อให้ส่งข้ามโดเมนได้
+            secure=True,     # ต้องเป็น True สำหรับ HTTPS
+            samesite="none", # ยอมให้ส่งข้ามโดเมน Frontend <-> Backend
             path="/",
-            domain=".onrender.com", # บังคับให้แชร์คุกกี้ข้ามกันได้
             max_age=60 * 60 * 24 * 7 # 7 วัน
         )
 
@@ -120,7 +120,7 @@ def get_me(current_user: User = Depends(get_current_user)):
     }
 
 # =========================
-# Logout (แก้ไขเพื่อความชัวร์ 100%)
+# Logout (แก้ไขแบบถอนรากถอนโคน)
 # =========================
 @router.get("/logout")
 def logout():
@@ -129,16 +129,24 @@ def logout():
         status_code=302
     )
     
-    # ✅ ลบ Cookie โดยระบุ Domain และ Path ให้ตรงกับตอนสร้างเป๊ะๆ
+    # ✅ ลบแบบที่ 1: ลบแบบระบุโดเมน (เผื่อของเก่าค้าง)
     response.delete_cookie(
         "access_token", 
         path="/",
         domain=".onrender.com", 
-        samesite="None",
+        samesite="none",
         secure=True
     )
     
-    # ✅ ป้องกัน Safari ใช้ Cache หน้าเดิมที่ยังมีสถานะ Login ค้างอยู่
+    # ✅ ลบแบบที่ 2: ลบแบบมาตรฐาน (เพื่อให้ Safari ยอมลบจริงๆ)
+    response.delete_cookie(
+        "access_token", 
+        path="/",
+        samesite="none",
+        secure=True
+    )
+    
+    # ✅ ป้องกัน Safari ใช้ Cache หน้าเดิม
     response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
     response.headers["Pragma"] = "no-cache"
     response.headers["Expires"] = "0"
