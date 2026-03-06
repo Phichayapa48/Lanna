@@ -1,10 +1,11 @@
 import { useRouter } from "next/router";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
+// ✅ ใช้ Library เพื่อให้แผนที่โต้ตอบได้
+import { GoogleMap, useJsApiLoader, Marker } from "@react-google-maps/api";
 
-// ✅ 1. ตั้งค่า API และดึง KEY (ต้องชื่อนี้เท่านั้นถึงจะรันบน Render ได้)
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000").replace(/\/$/, "");
-const GOOGLE_MAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY;
+const GOOGLE_MAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY || "";
 
 export default function ReviewMap() {
 
@@ -16,7 +17,13 @@ export default function ReviewMap() {
   const [placeName, setPlaceName] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // 📍 ดึงตำแหน่งปัจจุบัน
+  // ✅ โหลด Google Maps Script
+  const { isLoaded } = useJsApiLoader({
+    id: "google-map-script",
+    googleMapsApiKey: GOOGLE_MAPS_KEY,
+  });
+
+  // 📍 ดึงตำแหน่งปัจจุบันครั้งแรก
   useEffect(() => {
     if (!navigator.geolocation) return;
 
@@ -27,9 +34,16 @@ export default function ReviewMap() {
       },
       () => {
         alert("ไม่สามารถดึงตำแหน่งได้");
-      },
-      { enableHighAccuracy: true }
+      }
     );
+  }, []);
+
+  // ✅ ฟังก์ชันเมื่อจิ้มบนแผนที่ให้หมุดขยับ
+  const onMapClick = useCallback((e: google.maps.MapMouseEvent) => {
+    if (e.latLng) {
+      setLat(e.latLng.lat());
+      setLng(e.latLng.lng());
+    }
   }, []);
 
   const handleSaveLocation = async () => {
@@ -42,7 +56,6 @@ export default function ReviewMap() {
     try {
       setLoading(true);
 
-      // ✅ 2. ปรับ URL ให้เรียกผ่าน /api/v1 ตามมาตรฐาน Backend
       const res = await fetch(`${API_BASE}/api/v1/reviews/${review_id}/location`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -60,7 +73,6 @@ export default function ReviewMap() {
         return;
       }
 
-      alert("บันทึกพิกัดเรียบร้อย!");
       if (className) {
         router.push(`/reviews?class=${className}`);
       } else {
@@ -90,17 +102,21 @@ export default function ReviewMap() {
           📍 ปักหมุดสถานที่รีวิว
         </h1>
 
-        {/* 🗺️ 3. ส่วนแสดงแผนที่ (เพิ่ม <img> กลับเข้าไปเพื่อให้รูปขึ้น) */}
+        {/* 🗺️ ส่วนแผนที่: ใช้โครงสร้าง Div เดิมเป๊ะ แต่ใส่ GoogleMap แทน <img> */}
         <div className="rounded-2xl overflow-hidden border border-white/20 h-48 bg-slate-800 flex items-center justify-center">
-          {lat && lng && GOOGLE_MAPS_KEY ? (
-            <img
-              src={`https://maps.googleapis.com/maps/api/staticmap?center=${lat},${lng}&zoom=15&size=600x300&markers=color:red|${lat},${lng}&key=${GOOGLE_MAPS_KEY}`}
-              alt="Map Preview"
-              className="w-full h-full object-cover"
-            />
+          {isLoaded ? (
+            <GoogleMap
+              mapContainerStyle={{ width: "100%", height: "100%" }}
+              center={{ lat: lat || 19.0, lng: lng || 99.0 }}
+              zoom={15}
+              onClick={onMapClick}
+              options={{ disableDefaultUI: true }} // ปิดปุ่มรกๆ เพื่อให้คลีนแบบ UI เดิม
+            >
+              {lat && lng && <Marker position={{ lat, lng }} draggable={true} />}
+            </GoogleMap>
           ) : (
             <div className="text-center p-4 italic text-white/40 text-sm">
-              {lat ? "กำลังโหลดรูปแผนที่..." : "กำลังค้นหาพิกัด GPS..."}
+              {lat ? "กำลังโหลดแผนที่..." : "กำลังค้นหาพิกัด GPS..."}
             </div>
           )}
         </div>
@@ -115,13 +131,13 @@ export default function ReviewMap() {
           placeholder="ชื่อสถานที่ เช่น ตลาดสด"
           value={placeName}
           onChange={(e) => setPlaceName(e.target.value)}
-          className="w-full p-3 rounded-xl text-black outline-none focus:ring-2 ring-green-500"
+          className="w-full p-3 rounded-xl text-black"
         />
 
         <button
           onClick={handleSaveLocation}
-          disabled={loading || !lat}
-          className="w-full bg-green-500 hover:bg-green-600 disabled:opacity-50 px-6 py-3 rounded-xl font-semibold transition"
+          disabled={loading}
+          className="w-full bg-green-500 hover:bg-green-600 px-6 py-3 rounded-xl font-semibold transition"
         >
           {loading ? "กำลังบันทึก..." : "บันทึกตำแหน่ง"}
         </button>
