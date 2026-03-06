@@ -2,38 +2,48 @@ import "../styles/globals.css";
 import type { AppProps } from "next/app";
 import { useEffect, useState } from "react";
 import Head from "next/head";
+import { useRouter } from "next/router"; // เพิ่มตัวนี้เพื่อใช้ย้ายหน้า
 
 export default function MyApp({ Component, pageProps }: AppProps) {
   const [theme, setTheme] = useState<"light" | "dark">("light");
   const [mounted, setMounted] = useState(false);
+  const router = useRouter(); // สร้างตัวแปรจัดการ Route
 
-  // ✅ 1. จัดการเรื่อง Theme เมื่อ Component เริ่มทำงาน
+  // ✅ 1. จัดการเรื่อง Theme และเช็ก Auth เบื้องต้น
   useEffect(() => {
     setMounted(true);
     
-    // ดึงค่าจาก LocalStorage ถ้าไม่มีให้ใช้ light
+    // ดึงค่า Theme
     const savedTheme = (localStorage.getItem("theme") as "light" | "dark") || "light";
     setTheme(savedTheme);
     
-    // จัดการ Class ใน Document เพื่อให้ Tailwind dark mode ทำงาน
     if (savedTheme === "dark") {
       document.documentElement.classList.add("dark");
     } else {
       document.documentElement.classList.remove("dark");
     }
-  }, []);
 
-  // ✅ 2. ฟังก์ชันสลับ Theme
+    // 🚩 ส่วนที่เพิ่ม: ดักจับเหตุการณ์ Logout/401 ทั่วทั้งแอป
+    const handleAuthError = (event: any) => {
+      // ถ้ามีการส่ง Signal ว่า Unauthorized (401) ให้เด้งไปหน้า Login
+      if (event.detail === 401) {
+        localStorage.removeItem("access_token"); // ล้าง token ทิ้ง
+        router.push("/login"); 
+      }
+    };
+
+    window.addEventListener("auth-error", handleAuthError);
+    return () => window.removeEventListener("auth-error", handleAuthError);
+  }, [router]);
+
+  // ✅ 2. ฟังก์ชันสลับ Theme (คงเดิมเป๊ะ)
   const toggleTheme = () => {
     const newTheme = theme === "light" ? "dark" : "light";
     setTheme(newTheme);
     localStorage.setItem("theme", newTheme);
-
-    // ใช้ toggle เพื่อความกริบของโค้ด
     document.documentElement.classList.toggle("dark", newTheme === "dark");
   };
 
-  // ✅ 3. ป้องกัน Hydration Mismatch (หน้าจอกระพริบตอนโหลด)
   if (!mounted) {
     return null;
   }
@@ -46,13 +56,7 @@ export default function MyApp({ Component, pageProps }: AppProps) {
       </Head>
 
       <div className={`min-h-screen transition-colors duration-300 ${theme === 'dark' ? 'bg-gray-900' : 'bg-white'}`}>
-        {/* 🔥 ถ้าแอ๋มอยากเปิด Navbar ให้โชว์ทุกหน้า 
-           ให้สร้างไฟล์ Navbar.tsx แล้วมา Un-comment ตรงนี้ได้เลย 
-        */}
-        {/* <Navbar theme={theme} toggleTheme={toggleTheme} /> */}
-
         <main>
-          {/* ✅ ส่ง theme และ toggleTheme เข้าไปใน pageProps เพื่อให้หน้าลูกดึงไปใช้ได้ */}
           <Component 
             {...pageProps} 
             theme={theme} 
