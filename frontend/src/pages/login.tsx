@@ -5,11 +5,11 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // ดึงค่าจาก ENV หรือใช้ localhost ถ้าไม่มี (อย่าลืมตั้งค่าใน Render Dashboard)
+  // ดึงค่า URL จาก Environment Variable
   const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
   const handleGoogleLogin = () => {
-    // ✅ แก้ไข: เติม /auth เพื่อให้ตรงกับ app.include_router(auth_router, prefix="/auth")
+    // ✅ แก้ไข: เติม /auth นำหน้า เพื่อให้ตรงกับ Backend Router Prefix
     window.location.href = `${API_BASE}/auth/google/login`;
   };
 
@@ -18,7 +18,7 @@ export default function Login() {
     setLoading(true);
 
     try {
-      // ✅ แก้ไข: เติม /auth เพื่อให้ส่งไปที่ router ที่ถูกต้อง
+      // ✅ แก้ไข: เติม /auth นำหน้า login
       const res = await fetch(`${API_BASE}/auth/login`, {
         method: "POST",
         headers: {
@@ -33,11 +33,11 @@ export default function Login() {
       if (res.ok) {
         window.location.href = "/";
       } else {
-        alert(data.detail || "เข้าสู่ระบบไม่สำเร็จ");
+        alert(data.detail || "Login failed");
       }
     } catch (err) {
       console.error(err);
-      alert("ไม่สามารถติดต่อ Server ได้ (ตรวจสอบการตั้งค่า CORS หรือ Path)");
+      alert("ไม่สามารถติดต่อ Server ได้ (ตรวจสอบ CORS หรือ URL)");
     } finally {
       setLoading(false);
     }
@@ -63,7 +63,7 @@ export default function Login() {
           color: "white",
         }}
       >
-        <h2 style={{ marginBottom: "20px" }}>Sign In</h2>
+        <h2>Sign In</h2>
 
         <form onSubmit={handleNormalLogin}>
           <input
@@ -74,13 +74,12 @@ export default function Login() {
             onChange={(e) => setEmail(e.target.value)}
             style={{
               width: "100%",
-              padding: "12px",
-              marginTop: "10px",
+              padding: "10px",
+              marginTop: "15px",
               borderRadius: "8px",
               border: "1px solid #334155",
               background: "#0f172a",
               color: "white",
-              outline: "none",
             }}
           />
 
@@ -92,13 +91,12 @@ export default function Login() {
             onChange={(e) => setPassword(e.target.value)}
             style={{
               width: "100%",
-              padding: "12px",
+              padding: "10px",
               marginTop: "10px",
               borderRadius: "8px",
               border: "1px solid #334155",
               background: "#0f172a",
               color: "white",
-              outline: "none",
             }}
           />
 
@@ -107,36 +105,33 @@ export default function Login() {
             disabled={loading}
             style={{
               width: "100%",
-              padding: "12px",
-              marginTop: "20px",
+              padding: "10px",
+              marginTop: "15px",
               borderRadius: "8px",
               background: loading ? "#64748b" : "#2563eb",
               color: "white",
               border: "none",
               cursor: loading ? "not-allowed" : "pointer",
-              fontWeight: "bold",
             }}
           >
-            {loading ? "กำลังตรวจสอบ..." : "Sign In"}
+            {loading ? "Signing in..." : "Sign In"}
           </button>
         </form>
 
-        <div style={{ margin: "25px 0", opacity: 0.5, fontSize: "14px" }}>
-          ───── หรือเข้าสู่ระบบด้วย ─────
-        </div>
+        <div style={{ margin: "20px 0", opacity: 0.6 }}>───── or ─────</div>
 
         <button
           type="button"
           onClick={handleGoogleLogin}
           style={{
             width: "100%",
-            padding: "12px",
+            padding: "10px",
             borderRadius: "8px",
             background: "white",
-            color: "#1e293b",
+            color: "black",
             border: "1px solid #ccc",
             cursor: "pointer",
-            fontWeight: "600",
+            fontWeight: "500",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
