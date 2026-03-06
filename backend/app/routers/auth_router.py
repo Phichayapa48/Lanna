@@ -64,7 +64,7 @@ async def auth_callback(request: Request):
             key="access_token",
             value=jwt_token,
             httponly=True,
-            secure=False,  # True เมื่อ deploy HTTPS
+            secure=True,  # True เมื่อ deploy HTTPS
             samesite="lax",
             path="/"
         )
