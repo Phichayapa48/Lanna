@@ -10,7 +10,8 @@ type Props = {
   onSaved: () => void;
 };
 
-const API = "http://localhost:8000";
+// ✅ แก้ไข: ใช้ Environment Variable แทนการ Hardcode localhost
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 export default function MapComponent({
   reviewId,
@@ -38,7 +39,7 @@ export default function MapComponent({
   if (!isLoaded) {
     return (
       <div className="fixed inset-0 flex items-center justify-center bg-black/40 z-50">
-        <div className="bg-white px-8 py-6 rounded-2xl shadow-lg">
+        <div className="bg-white px-8 py-6 rounded-2xl shadow-lg font-sans">
           กำลังโหลดแผนที่...
         </div>
       </div>
@@ -51,11 +52,16 @@ export default function MapComponent({
     try {
       setLoading(true);
 
+      // ✅ แก้ไข: ล้างเครื่องหมาย / เผื่อไว้ และใส่ Path ให้ถูกต้องตาม Backend
+      const cleanBase = API_BASE.endsWith('/') ? API_BASE.slice(0, -1) : API_BASE;
+      
+      // ตรวจสอบกับ Backend: ถ้า review_router อยู่ภายใต้ /api/v1 ต้องเติมลงไปด้วยครับ
+      // แต่จาก main.py ล่าสุดที่ผมแก้ให้ มันรองรับทั้งแบบมีและไม่มี prefix ครับ
       const res = await fetch(
-        `${API}/reviews/${reviewId}/location`,
+        `${cleanBase}/reviews/${reviewId}/location`,
         {
           method: "PUT",
-          credentials: "include",
+          credentials: "include", // สำคัญมากเพื่อให้ Backend รู้ว่าเป็น User คนไหนจาก Cookie
           headers: {
             "Content-Type": "application/json",
           },
@@ -68,10 +74,11 @@ export default function MapComponent({
       );
 
       if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
         if (res.status === 401) {
-          throw new Error("กรุณาเข้าสู่ระบบก่อน");
+          throw new Error("กรุณาเข้าสู่ระบบก่อนบันทึกตำแหน่ง");
         }
-        throw new Error("บันทึกตำแหน่งไม่สำเร็จ");
+        throw new Error(errorData.detail || "บันทึกตำแหน่งไม่สำเร็จ");
       }
 
       onSaved();
@@ -105,7 +112,7 @@ export default function MapComponent({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 backdrop-blur-sm">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 backdrop-blur-sm font-sans text-gray-800">
       <div className="bg-white w-[700px] max-w-[95%] rounded-3xl shadow-2xl overflow-hidden">
 
         {/* Header */}
@@ -114,7 +121,7 @@ export default function MapComponent({
             📍 เลือกตำแหน่งสถานที่
           </h2>
           <p className="text-sm opacity-80">
-            คลิกบนแผนที่เพื่อปักหมุด
+            คลิกบนแผนที่เพื่อปักหมุดจุดที่พบเจอผัก
           </p>
         </div>
 
@@ -131,12 +138,14 @@ export default function MapComponent({
               mapRef.current = map;
             }}
             onClick={handleMapClick}
+            // เพิ่ม Map ID ถ้าอ้ายต้องการใช้ AdvancedMarker แบบเต็มรูปแบบใน Google Cloud
+            options={{ mapId: "8e0a97af9386fef" }} 
           />
 
           {/* Place Name Input */}
           <div>
             <label className="block text-sm font-medium text-gray-600 mb-2">
-              ชื่อสถานที่
+              ชื่อสถานที่ / แหล่งที่พบ
             </label>
             <input
               type="text"
@@ -144,8 +153,8 @@ export default function MapComponent({
               onChange={(e) =>
                 setPlaceName(e.target.value)
               }
-              className="w-full border border-gray-200 rounded-xl px-4 py-2 focus:ring-2 focus:ring-emerald-400 outline-none transition"
-              placeholder="เช่น ตลาดบ้านแม่ริม"
+              className="w-full border border-gray-200 rounded-xl px-4 py-2 focus:ring-2 focus:ring-emerald-400 outline-none transition text-black"
+              placeholder="เช่น ตลาดบ้านแม่ริม, สวนหลังบ้าน"
             />
           </div>
 
@@ -153,7 +162,7 @@ export default function MapComponent({
           <div className="flex justify-end gap-3 pt-2">
             <button
               onClick={onClose}
-              className="px-5 py-2 rounded-xl border border-gray-300 hover:bg-gray-100 transition"
+              className="px-5 py-2 rounded-xl border border-gray-300 hover:bg-gray-100 transition text-gray-600"
             >
               ยกเลิก
             </button>
@@ -162,7 +171,7 @@ export default function MapComponent({
               <button
                 onClick={saveLocation}
                 disabled={loading}
-                className="px-6 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white transition disabled:opacity-50"
+                className="px-6 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white transition disabled:opacity-50 shadow-md font-bold"
               >
                 {loading
                   ? "กำลังบันทึก..."
