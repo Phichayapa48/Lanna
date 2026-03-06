@@ -12,7 +12,7 @@ from app.routers.predict_router import router as predict_router
 from app.routers.auth_router import router as auth_router
 from app.routers.review_router import router as review_router
 
-# Models (ต้อง import เพื่อให้ SQLAlchemy รู้จัก table)
+# Models
 from app.models.review import Review
 from app.models.user import User
 
@@ -28,20 +28,20 @@ app = FastAPI(
 # =========================
 # 2. CORS Setup
 # =========================
-FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
+# ดึงค่าจาก ENV ถ้าไม่มีให้ใช้ localhost (แต่อย่าลืมตั้งใน Render นะอ้าย)
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000").rstrip("/")
 
 origins = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
-    "http://localhost:8000",
-    "http://127.0.0.1:8000",
+    "https://lanna-frontend.onrender.com", # ใส่เผื่อไว้เลยกันพลาด
     FRONTEND_URL,
 ]
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
-    allow_credentials=True,
+    allow_credentials=True, # สำคัญมากสำหรับ Session/Cookie
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -52,16 +52,13 @@ app.add_middleware(
 app.add_middleware(
     SessionMiddleware,
     secret_key=settings.SECRET_KEY,
-    same_site="none",
-    https_only=True,   # Render เป็น HTTPS
+    same_site="none",  # ต้องเป็น none เพื่อให้คุยข้ามโดเมน (Frontend <-> Backend) ได้
+    https_only=True,   # Render เป็น HTTPS อยู่แล้ว ต้องเปิดไว้ครับ
 )
 
 # =========================
 # 4. OAuth Setup
 # =========================
-if not settings.GOOGLE_CLIENT_ID:
-    print("⚠️ WARNING: GOOGLE_CLIENT_ID is missing!")
-
 oauth = OAuth()
 oauth.register(
     name="google",
@@ -74,10 +71,8 @@ oauth.register(
 app.state.oauth = oauth
 
 # =========================
-# 5. Database Initial (สำคัญมาก)
+# 5. Database Initial
 # =========================
-# ❌ ห้าม create_all ตอน import
-# ✅ ย้ายมารันตอน startup แทน
 @app.on_event("startup")
 def on_startup():
     try:
@@ -108,8 +103,11 @@ def debug_cookie(request: Request):
     }
 
 # =========================
-# 7. Routers
+# 7. Routers (ปรับให้ตรงกับ Frontend)
 # =========================
 app.include_router(predict_router, prefix="/api/v1")
 app.include_router(auth_router, prefix="/auth")
+
+# แก้ตรงนี้: ให้ Review รองรับทั้งแบบมี /api/v1 และไม่มี (กัน Frontend งง)
 app.include_router(review_router, prefix="/api/v1")
+app.include_router(review_router, prefix="")
