@@ -5,40 +5,39 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // ✅ เปลี่ยนจาก localhost เป็นตัวแปร Environment
-  // Next.js จะดึงค่าจาก NEXT_PUBLIC_API_URL ที่ตั้งไว้ใน Render/Local
+  // ดึงค่าจาก ENV หรือใช้ localhost ถ้าไม่มี (อย่าลืมตั้งค่าใน Render Dashboard)
   const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
   const handleGoogleLogin = () => {
-    // ส่งไปที่ Backend URL จริงๆ
-    window.location.href = `${API_BASE}/google/login`;
+    // ✅ แก้ไข: เติม /auth เพื่อให้ตรงกับ app.include_router(auth_router, prefix="/auth")
+    window.location.href = `${API_BASE}/auth/google/login`;
   };
 
   const handleNormalLogin = async (e) => {
-    e.preventDefault(); // 👈 ป้องกันหน้าจอ Refresh เองเวลาส่งฟอร์ม
+    e.preventDefault(); 
     setLoading(true);
 
     try {
-      const res = await fetch(`${API_BASE}/login`, {
+      // ✅ แก้ไข: เติม /auth เพื่อให้ส่งไปที่ router ที่ถูกต้อง
+      const res = await fetch(`${API_BASE}/auth/login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ email, password }),
-        credentials: "include", // 👈 จำเป็นมากสำหรับ Auth (Cookie/Session)
+        credentials: "include", 
       });
 
       const data = await res.json();
 
       if (res.ok) {
-        // เปลี่ยนหน้าเมื่อสำเร็จ (อาจใช้ useRouter ของ Next.js แทนได้)
         window.location.href = "/";
       } else {
-        alert(data.detail || "Login failed");
+        alert(data.detail || "เข้าสู่ระบบไม่สำเร็จ");
       }
     } catch (err) {
       console.error(err);
-      alert("ไม่สามารถติดต่อ Server ได้ (ตรวจสอบ CORS หรือ URL)");
+      alert("ไม่สามารถติดต่อ Server ได้ (ตรวจสอบการตั้งค่า CORS หรือ Path)");
     } finally {
       setLoading(false);
     }
@@ -64,9 +63,8 @@ export default function Login() {
           color: "white",
         }}
       >
-        <h2>Sign In</h2>
+        <h2 style={{ marginBottom: "20px" }}>Sign In</h2>
 
-        {/* ใช้อันนี้หุ้มเพื่อให้กด Enter แล้วส่งฟอร์มได้เลย */}
         <form onSubmit={handleNormalLogin}>
           <input
             type="email"
@@ -76,12 +74,13 @@ export default function Login() {
             onChange={(e) => setEmail(e.target.value)}
             style={{
               width: "100%",
-              padding: "10px",
-              marginTop: "15px",
+              padding: "12px",
+              marginTop: "10px",
               borderRadius: "8px",
               border: "1px solid #334155",
               background: "#0f172a",
               color: "white",
+              outline: "none",
             }}
           />
 
@@ -93,12 +92,13 @@ export default function Login() {
             onChange={(e) => setPassword(e.target.value)}
             style={{
               width: "100%",
-              padding: "10px",
+              padding: "12px",
               marginTop: "10px",
               borderRadius: "8px",
               border: "1px solid #334155",
               background: "#0f172a",
               color: "white",
+              outline: "none",
             }}
           />
 
@@ -107,33 +107,36 @@ export default function Login() {
             disabled={loading}
             style={{
               width: "100%",
-              padding: "10px",
-              marginTop: "15px",
+              padding: "12px",
+              marginTop: "20px",
               borderRadius: "8px",
               background: loading ? "#64748b" : "#2563eb",
               color: "white",
               border: "none",
               cursor: loading ? "not-allowed" : "pointer",
+              fontWeight: "bold",
             }}
           >
-            {loading ? "Signing in..." : "Sign In"}
+            {loading ? "กำลังตรวจสอบ..." : "Sign In"}
           </button>
         </form>
 
-        <div style={{ margin: "20px 0", opacity: 0.6 }}>───── or ─────</div>
+        <div style={{ margin: "25px 0", opacity: 0.5, fontSize: "14px" }}>
+          ───── หรือเข้าสู่ระบบด้วย ─────
+        </div>
 
         <button
           type="button"
           onClick={handleGoogleLogin}
           style={{
             width: "100%",
-            padding: "10px",
+            padding: "12px",
             borderRadius: "8px",
             background: "white",
-            color: "black",
+            color: "#1e293b",
             border: "1px solid #ccc",
             cursor: "pointer",
-            fontWeight: "500",
+            fontWeight: "600",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
