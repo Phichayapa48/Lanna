@@ -2,8 +2,9 @@ import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 
-// ✅ แก้ไข: ดึงค่าจาก Environment Variable เพื่อให้ใช้งานได้ทั้ง Local และ Render
+// ✅ 1. เพิ่มตัวแปรดึงค่าจาก ENV เพื่อให้รูปแผนที่ขึ้น (สำคัญมาก!)
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000").replace(/\/$/, "");
+const GOOGLE_MAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY;
 
 export default function ReviewMap() {
 
@@ -17,10 +18,7 @@ export default function ReviewMap() {
 
   // 📍 ดึงตำแหน่งปัจจุบัน
   useEffect(() => {
-    if (!navigator.geolocation) {
-      alert("เบราว์เซอร์ไม่รองรับ Geolocation");
-      return;
-    }
+    if (!navigator.geolocation) return;
 
     navigator.geolocation.getCurrentPosition(
       (pos) => {
@@ -28,49 +26,31 @@ export default function ReviewMap() {
         setLng(pos.coords.longitude);
       },
       () => {
-        alert("ไม่สามารถดึงตำแหน่งได้ กรุณาเปิดสิทธิ์ GPS");
+        alert("ไม่สามารถดึงตำแหน่งได้");
       },
-      { enableHighAccuracy: true } // เพิ่มเพื่อให้พิกัดแม่นยำขึ้น
+      { enableHighAccuracy: true }
     );
   }, []);
 
   const handleSaveLocation = async () => {
-
     if (!review_id || lat == null || lng == null) {
-      alert("ข้อมูลพิกัดยังไม่พร้อม");
+      alert("ข้อมูลไม่ครบ");
       return;
     }
 
     try {
       setLoading(true);
-
-      // ✅ แก้ไข: พยายามเรียกผ่าน /api/v1/ ก่อน
-      const url = `${API_BASE}/api/v1/reviews/${review_id}/location`;
-      
-      let res = await fetch(url, {
+      // ✅ 2. ปรับ URL ให้รองรับการ Deploy จริง
+      const res = await fetch(`${API_BASE}/api/v1/reviews/${review_id}/location`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        credentials: "include", // สำคัญมาก: เพื่อส่งคุกกี้กุญแจ (access_token) ไปด้วย
+        credentials: "include",
         body: JSON.stringify({
           latitude: lat,
           longitude: lng,
-          place_name: placeName || "พิกัดจากผู้ใช้",
+          place_name: placeName,
         }),
       });
-
-      // 🔄 Fallback: ถ้า 404 ให้ลอง Path ปกติ (เผื่อพี่แป๊ปยังไม่แก้ Router)
-      if (res.status === 404) {
-        res = await fetch(`${API_BASE}/reviews/${review_id}/location`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({
-            latitude: lat,
-            longitude: lng,
-            place_name: placeName,
-          }),
-        });
-      }
 
       if (!res.ok) {
         const err = await res.json();
@@ -78,17 +58,13 @@ export default function ReviewMap() {
         return;
       }
 
-      alert("บันทึกพิกัดเรียบร้อย!");
-
-      // ✅ redirect ไปหน้ารวมรีวิว พร้อม filter class
       if (className) {
         router.push(`/reviews?class=${className}`);
       } else {
         router.push("/reviews");
       }
-
-    } catch (error) {
-      alert("เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์");
+    } catch {
+      alert("เกิดข้อผิดพลาด");
     } finally {
       setLoading(false);
     }
@@ -96,22 +72,29 @@ export default function ReviewMap() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-900 via-green-800 to-emerald-700 text-white flex items-center justify-center px-6 py-16">
-
       <div className="bg-white/10 backdrop-blur-xl p-10 rounded-3xl shadow-2xl space-y-6 w-full max-w-lg border border-white/20">
-
-        <Link
-          href="/"
-          className="inline-block bg-white/10 hover:bg-white/20 px-4 py-2 rounded-xl text-sm transition"
-        >
+        
+        <Link href="/" className="inline-block bg-white/10 hover:bg-white/20 px-4 py-2 rounded-xl text-sm transition">
           ← กลับหน้าแรก
         </Link>
 
-        <h1 className="text-2xl font-bold text-center">
-          📍 ปักหมุดสถานที่รีวิว
-        </h1>
+        <h1 className="text-2xl font-bold text-center">📍 ปักหมุดสถานที่รีวิว</h1>
+
+        {/* 🗺️ 3. เพิ่มส่วนแสดงรูปแผนที่ (ที่ของเดิมไม่มี) */}
+        <div className="rounded-2xl overflow-hidden border border-white/20 h-48 bg-black/20 flex items-center justify-center">
+          {lat && lng && GOOGLE_MAPS_KEY ? (
+            <img
+              src={`https://maps.googleapis.com/maps/api/staticmap?center=${lat},${lng}&zoom=15&size=600x300&markers=color:red|${lat},${lng}&key=${GOOGLE_MAPS_KEY}`}
+              alt="Map Preview"
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <p className="text-xs text-white/40 italic">กำลังรอพิกัดและโหลดแผนที่...</p>
+          )}
+        </div>
 
         {lat && lng && (
-          <div className="text-sm text-green-300 text-center">
+          <div className="text-sm text-green-300 text-center font-mono">
             Lat: {lat.toFixed(6)} | Lng: {lng.toFixed(6)}
           </div>
         )}
@@ -120,17 +103,16 @@ export default function ReviewMap() {
           placeholder="ชื่อสถานที่ เช่น ตลาดสด"
           value={placeName}
           onChange={(e) => setPlaceName(e.target.value)}
-          className="w-full p-3 rounded-xl text-black"
+          className="w-full p-3 rounded-xl text-black outline-none focus:ring-2 ring-green-500"
         />
 
         <button
           onClick={handleSaveLocation}
           disabled={loading || !lat}
-          className="w-full bg-green-500 hover:bg-green-600 px-6 py-3 rounded-xl font-semibold transition disabled:opacity-50"
+          className="w-full bg-green-500 hover:bg-green-600 disabled:opacity-50 px-6 py-3 rounded-xl font-semibold transition"
         >
           {loading ? "กำลังบันทึก..." : "บันทึกตำแหน่ง"}
         </button>
-
       </div>
     </div>
   );
