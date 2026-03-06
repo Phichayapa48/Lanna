@@ -28,17 +28,23 @@ export default function AuthPage() {
       });
   }, [API_URL]);
 
-  // ✅ แก้เฉพาะ Logic Logout ให้เรียก API เพื่อล้าง HttpOnly Cookie
+  // ✅ แก้ Logic Logout ให้ "บังคับ Refresh" เพื่อล้างหน้าจอที่ค้างอยู่
   const handleLogout = async () => {
     try {
       await axios.get(`${API_URL}/auth/logout`, {
         withCredentials: true,
       });
+      
+      // ✅ ล้าง State ในเครื่อง
       setUser(null);
-      router.push("/"); // พาไปหน้าแรกหลัง Logout
+      
+      // ✅ บังคับโหลดหน้าใหม่เพื่อล้าง Cache ของ Browser และ UI ที่ค้าง
+      window.location.href = "/"; 
+      
     } catch (err) {
       console.error("Logout failed", err);
       setUser(null);
+      window.location.href = "/";
     }
   };
 
