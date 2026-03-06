@@ -16,9 +16,9 @@ logger = logging.getLogger(__name__)
 @router.get("/google/login")
 async def login_via_google(request: Request):
     oauth = request.app.state.oauth
+    # ใช้ url_for เพื่อสร้าง callback url ให้ตรงกับชื่อฟังก์ชัน
     redirect_uri = request.url_for("auth_callback")
     return await oauth.google.authorize_redirect(request, redirect_uri)
-
 
 # =========================
 # Google Callback
@@ -26,7 +26,6 @@ async def login_via_google(request: Request):
 @router.get("/google/callback", name="auth_callback")
 async def auth_callback(request: Request):
     db = SessionLocal()
-
     try:
         oauth = request.app.state.oauth
         token = await oauth.google.authorize_access_token(request)
@@ -55,18 +54,21 @@ async def auth_callback(request: Request):
 
         jwt_token = create_access_token({"sub": user.email})
 
+        # ส่งกลับไปหน้าแรกของ Frontend
         response = RedirectResponse(
             url=settings.FRONTEND_URL,
             status_code=302
         )
 
+        # ✅ ตั้งค่า Cookie ให้รองรับ Cross-Site (Render)
         response.set_cookie(
             key="access_token",
             value=jwt_token,
             httponly=True,
-            secure=True,  # True เมื่อ deploy HTTPS
-            samesite="none",
-            path="/"
+            secure=True,     # ต้องเป็น True สำหรับ HTTPS
+            samesite="None", # ต้องเป็น "None" (N ตัวใหญ่) เพื่อให้ส่งข้ามโดเมนได้
+            path="/",
+            max_age=60 * 60 * 24 * 7 # 7 วัน
         )
 
         return response
@@ -74,9 +76,8 @@ async def auth_callback(request: Request):
     finally:
         db.close()
 
-
 # =========================
-# 🔥 JWT Dependency (แก้ไขภาษาไทย)
+# GET CURRENT USER
 # =========================
 def get_current_user(
     access_token: str = Cookie(None),
@@ -89,7 +90,6 @@ def get_current_user(
         )
 
     payload = verify_token(access_token)
-
     if not payload:
         raise HTTPException(
             status_code=401,
@@ -108,10 +108,6 @@ def get_current_user(
 
     return user
 
-
-# =========================
-# GET CURRENT USER
-# =========================
 @router.get("/me")
 def get_me(current_user: User = Depends(get_current_user)):
     return {
@@ -122,7 +118,6 @@ def get_me(current_user: User = Depends(get_current_user)):
         }
     }
 
-
 # =========================
 # Logout
 # =========================
@@ -132,6 +127,11 @@ def logout():
         url=settings.FRONTEND_URL,
         status_code=302
     )
-
-    response.delete_cookie("access_token", path="/")
+    # ลบ Cookie ออก
+    response.delete_cookie(
+        "access_token", 
+        path="/",
+        samesite="None",
+        secure=True
+    )
     return response
