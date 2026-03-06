@@ -60,14 +60,15 @@ async def auth_callback(request: Request):
             status_code=302
         )
 
-        # ✅ ตั้งค่า Cookie ให้รองรับ Cross-Site (Render)
+        # ✅ แก้ไข: เพิ่ม domain=".onrender.com" เพื่อให้คุกกี้แชร์ข้าม Subdomain ได้บน Render
         response.set_cookie(
             key="access_token",
             value=jwt_token,
             httponly=True,
-            secure=True,     # ต้องเป็น True สำหรับ HTTPS
-            samesite="None", # ต้องเป็น "None" (N ตัวใหญ่) เพื่อให้ส่งข้ามโดเมนได้
+            secure=True,     # ต้องเป็น True สำหรับ HTTPS (Render)
+            samesite="None", # ต้องเป็น "None" (N ตัวใหญ่)
             path="/",
+            domain=".onrender.com", # 🔥 บังคับให้เบราว์เซอร์ส่งคุกกี้ข้ามโดเมนบน Render
             max_age=60 * 60 * 24 * 7 # 7 วัน
         )
 
@@ -76,8 +77,9 @@ async def auth_callback(request: Request):
     finally:
         db.close()
 
+
 # =========================
-# GET CURRENT USER
+# 🔥 JWT Dependency (แก้ไขภาษาไทย)
 # =========================
 def get_current_user(
     access_token: str = Cookie(None),
@@ -90,6 +92,7 @@ def get_current_user(
         )
 
     payload = verify_token(access_token)
+
     if not payload:
         raise HTTPException(
             status_code=401,
@@ -108,6 +111,10 @@ def get_current_user(
 
     return user
 
+
+# =========================
+# GET CURRENT USER
+# =========================
 @router.get("/me")
 def get_me(current_user: User = Depends(get_current_user)):
     return {
@@ -118,6 +125,7 @@ def get_me(current_user: User = Depends(get_current_user)):
         }
     }
 
+
 # =========================
 # Logout
 # =========================
@@ -127,10 +135,12 @@ def logout():
         url=settings.FRONTEND_URL,
         status_code=302
     )
-    # ลบ Cookie ออก
+
+    # ✅ ลบคุกกี้ออกโดยระบุ Domain เดียวกันกับตอนสร้าง
     response.delete_cookie(
         "access_token", 
         path="/",
+        domain=".onrender.com", 
         samesite="None",
         secure=True
     )
