@@ -2,7 +2,7 @@ import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 
-// ✅ 1. เพิ่มตัวแปรดึงค่าจาก ENV เพื่อให้รูปแผนที่ขึ้น (สำคัญมาก!)
+// ✅ 1. ตั้งค่า API และดึง KEY (ต้องชื่อนี้เท่านั้นถึงจะรันบน Render ได้)
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000").replace(/\/$/, "");
 const GOOGLE_MAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY;
 
@@ -33,6 +33,7 @@ export default function ReviewMap() {
   }, []);
 
   const handleSaveLocation = async () => {
+
     if (!review_id || lat == null || lng == null) {
       alert("ข้อมูลไม่ครบ");
       return;
@@ -40,7 +41,8 @@ export default function ReviewMap() {
 
     try {
       setLoading(true);
-      // ✅ 2. ปรับ URL ให้รองรับการ Deploy จริง
+
+      // ✅ 2. ปรับ URL ให้เรียกผ่าน /api/v1 ตามมาตรฐาน Backend
       const res = await fetch(`${API_BASE}/api/v1/reviews/${review_id}/location`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -58,11 +60,13 @@ export default function ReviewMap() {
         return;
       }
 
+      alert("บันทึกพิกัดเรียบร้อย!");
       if (className) {
         router.push(`/reviews?class=${className}`);
       } else {
         router.push("/reviews");
       }
+
     } catch {
       alert("เกิดข้อผิดพลาด");
     } finally {
@@ -72,16 +76,22 @@ export default function ReviewMap() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-900 via-green-800 to-emerald-700 text-white flex items-center justify-center px-6 py-16">
+
       <div className="bg-white/10 backdrop-blur-xl p-10 rounded-3xl shadow-2xl space-y-6 w-full max-w-lg border border-white/20">
-        
-        <Link href="/" className="inline-block bg-white/10 hover:bg-white/20 px-4 py-2 rounded-xl text-sm transition">
+
+        <Link
+          href="/"
+          className="inline-block bg-white/10 hover:bg-white/20 px-4 py-2 rounded-xl text-sm transition"
+        >
           ← กลับหน้าแรก
         </Link>
 
-        <h1 className="text-2xl font-bold text-center">📍 ปักหมุดสถานที่รีวิว</h1>
+        <h1 className="text-2xl font-bold text-center">
+          📍 ปักหมุดสถานที่รีวิว
+        </h1>
 
-        {/* 🗺️ 3. เพิ่มส่วนแสดงรูปแผนที่ (ที่ของเดิมไม่มี) */}
-        <div className="rounded-2xl overflow-hidden border border-white/20 h-48 bg-black/20 flex items-center justify-center">
+        {/* 🗺️ 3. ส่วนแสดงแผนที่ (เพิ่ม <img> กลับเข้าไปเพื่อให้รูปขึ้น) */}
+        <div className="rounded-2xl overflow-hidden border border-white/20 h-48 bg-slate-800 flex items-center justify-center">
           {lat && lng && GOOGLE_MAPS_KEY ? (
             <img
               src={`https://maps.googleapis.com/maps/api/staticmap?center=${lat},${lng}&zoom=15&size=600x300&markers=color:red|${lat},${lng}&key=${GOOGLE_MAPS_KEY}`}
@@ -89,7 +99,9 @@ export default function ReviewMap() {
               className="w-full h-full object-cover"
             />
           ) : (
-            <p className="text-xs text-white/40 italic">กำลังรอพิกัดและโหลดแผนที่...</p>
+            <div className="text-center p-4 italic text-white/40 text-sm">
+              {lat ? "กำลังโหลดรูปแผนที่..." : "กำลังค้นหาพิกัด GPS..."}
+            </div>
           )}
         </div>
 
@@ -113,6 +125,7 @@ export default function ReviewMap() {
         >
           {loading ? "กำลังบันทึก..." : "บันทึกตำแหน่ง"}
         </button>
+
       </div>
     </div>
   );
