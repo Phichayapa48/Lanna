@@ -96,7 +96,7 @@ export default function Classify() {
     }
   };
 
-  // ✅ ฟังก์ชันบันทึกรีวิว (ปรับปรุงเพื่อรองรับมือถือ)
+  // ✅ ฟังก์ชันบันทึกรีวิว
   const handleSubmitReview = async () => {
     if (!result) return;
     const token = localStorage.getItem("access_token");
@@ -109,7 +109,6 @@ export default function Classify() {
 
     try {
       setReviewLoading(true);
-      
       const cleanBase = API_BASE.endsWith('/') ? API_BASE.slice(0, -1) : API_BASE;
 
       const res = await fetch(`${cleanBase}/api/v1/reviews/`, {
@@ -171,7 +170,7 @@ export default function Classify() {
           <input
             type="file"
             accept="image/*"
-            capture="environment" // ✅ เพิ่มเพื่อเรียกกล้องบนมือถือ
+            // ✅ เอา capture ออกแล้ว เพื่อให้เครื่องเด้งเมนู "ถ่ายรูป" หรือ "คลังภาพ" ให้เลือกเอง
             onChange={handleFileChange}
             className="w-full border border-gray-400 dark:border-slate-600 rounded-2xl p-3 bg-white dark:bg-slate-700 text-black dark:text-white"
           />
