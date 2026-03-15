@@ -12,10 +12,6 @@ from app.routers.predict_router import router as predict_router
 from app.routers.auth_router import router as auth_router
 from app.routers.review_router import router as review_router
 
-# Models
-from app.models.review import Review
-from app.models.user import User
-
 # =========================
 # 1. Create App
 # =========================
@@ -26,34 +22,34 @@ app = FastAPI(
 )
 
 # =========================
-# 2. CORS Setup
+# 2. CORS Setup (หัวใจสำคัญของการเชื่อมต่อ)
 # =========================
-# ดึงค่าจาก ENV ถ้าไม่มีให้ใช้ localhost (แต่อย่าลืมตั้งใน Render นะอ้าย)
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000").rstrip("/")
 
 origins = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
-    "https://lanna-frontend.onrender.com", # ใส่เผื่อไว้เลยกันพลาด
+    "https://lanna-frontend.onrender.com", 
     FRONTEND_URL,
 ]
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
-    allow_credentials=True, # สำคัญมากสำหรับ Session/Cookie
+    allow_credentials=True, # ✅ จำเป็นสำหรับ OAuth flow
     allow_methods=["*"],
-    allow_headers=["*"],
+    allow_headers=["*"],    # ✅ สำคัญ: ต้องอนุญาต headers ทั้งหมดเพื่อให้ส่ง Authorization: Bearer ได้
 )
 
 # =========================
 # 3. Session Middleware
 # =========================
+# ใช้สำหรับเก็บ 'state' ตอนทำ Google Login ชั่วคราว
 app.add_middleware(
     SessionMiddleware,
     secret_key=settings.SECRET_KEY,
-    same_site="none",  # ต้องเป็น none เพื่อให้คุยข้ามโดเมน (Frontend <-> Backend) ได้
-    https_only=True,   # Render เป็น HTTPS อยู่แล้ว ต้องเปิดไว้ครับ
+    same_site="none",  
+    https_only=True,   # ✅ บน Render ต้องเป็น True เสมอ
 )
 
 # =========================
@@ -68,6 +64,7 @@ oauth.register(
     client_kwargs={"scope": "openid email profile"},
 )
 
+# ✅ เก็บ oauth ไว้ใน state เพื่อให้ auth_router เรียกใช้ได้
 app.state.oauth = oauth
 
 # =========================
@@ -76,6 +73,7 @@ app.state.oauth = oauth
 @app.on_event("startup")
 def on_startup():
     try:
+        # สร้าง Table ตาม Models ที่เรา Import มา (User, Review ฯลฯ)
         Base.metadata.create_all(bind=engine)
         print("✅ Database tables checked/created")
     except Exception as e:
@@ -88,26 +86,26 @@ def on_startup():
 def root():
     return {
         "status": "API Running",
-        "environment": "Production" if os.getenv("RENDER") else "Local"
+        "environment": "Production" if os.getenv("RENDER") else "Local",
+        "frontend_target": FRONTEND_URL
     }
 
 @app.get("/ping")
 def ping():
     return {"pong": True}
 
-@app.get("/debug-cookie")
-def debug_cookie(request: Request):
-    return {
-        "cookies": request.cookies,
-        "session": request.session if "session" in request.scope else "no session"
-    }
-
 # =========================
-# 7. Routers (ปรับให้ตรงกับ Frontend)
+# 7. Routers (จัดกลุ่มให้ Frontend ใช้ง่าย)
 # =========================
-app.include_router(predict_router, prefix="/api/v1")
-app.include_router(auth_router, prefix="/auth")
 
-# แก้ตรงนี้: ให้ Review รองรับทั้งแบบมี /api/v1 และไม่มี (กัน Frontend งง)
-app.include_router(review_router, prefix="/api/v1")
-app.include_router(review_router, prefix="")
+# กลุ่ม API หลัก (Predict, Reviews)
+app.include_router(predict_router, prefix="/api/v1", tags=["Prediction"])
+app.include_router(review_router, prefix="/api/v1", tags=["Reviews"])
+
+# กลุ่ม Auth (Google Login)
+app.include_router(auth_router, prefix="/auth", tags=["Authentication"])
+
+# ✅ กันเหนียว: เผื่อ Frontend เรียก Review แบบไม่มี /api/v1
+app.include_router(review_router, prefix="/reviews", tags=["Reviews Legacy"])
+# ✅ กันเหนียว: เผื่อเรียก Predict แบบตรงๆ
+app.include_router(predict_router, prefix="/predict", tags=["Prediction Legacy"])
