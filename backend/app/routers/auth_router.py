@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Request, HTTPException, Depends, Header
+from fastapi import APIRouter, Request, HTTPException, Depends
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 from app.config import settings
@@ -15,12 +15,13 @@ logger = logging.getLogger(__name__)
 # =========================
 @router.get("/google/login")
 async def login_via_google(request: Request):
+    # ดึงค่า oauth ที่เราตั้งค่าไว้ตอนเริ่มต้นแอป
     oauth = request.app.state.oauth
     redirect_uri = request.url_for("auth_callback")
     return await oauth.google.authorize_redirect(request, redirect_uri)
 
 # =========================
-# Google Callback (เปลี่ยนเป็นส่ง Token ผ่าน URL)
+# Google Callback (ส่ง Token ผ่าน URL)
 # =========================
 @router.get("/google/callback", name="auth_callback")
 async def auth_callback(request: Request):
@@ -33,20 +34,22 @@ async def auth_callback(request: Request):
         if not user_info:
             return RedirectResponse(url=f"{settings.FRONTEND_URL}/login?error=google_failed")
 
+        # ตรวจสอบว่ามี User นี้ในระบบหรือยัง
         user = db.query(User).filter(User.email == user_info["email"]).first()
 
         if not user:
+            # ถ้ายังไม่มี ให้ลงทะเบียนใหม่ (OAuth มักจะไม่มี password)
             user = User(
                 email=user_info["email"],
                 full_name=user_info.get("name"),
                 google_id=user_info.get("sub"),
-                password=None
+                password=None  # สำหรับผู้ใช้ที่สมัครผ่าน Google
             )
             db.add(user)
             db.commit()
             db.refresh(user)
 
-        # 1. สร้าง JWT Token
+        # 1. ✅ สร้าง JWT Token (บัตรผ่านสำหรับ Frontend)
         jwt_token = create_access_token({"sub": user.email})
 
         # 2. ✅ ส่ง Token กลับไปที่หน้าพัก (เช่น /auth) ของ Frontend ทาง URL
@@ -62,42 +65,48 @@ async def auth_callback(request: Request):
         db.close()
 
 # =========================
-# GET CURRENT USER (เปลี่ยนมาเช็คจาก Header)
+# Dependency: ตรวจสอบตัวตนจาก Header
 # =========================
-def get_current_user(
-    request: Request,
-    db: Session = Depends(get_db)
-):
-    # ✅ อ่าน Token จาก Header: Authorization: Bearer <token>
+def get_current_user(request: Request, db: Session = Depends(get_db)):
+    # อ่านจาก Header: Authorization: Bearer <token>
     auth_header = request.headers.get("Authorization")
     
     if not auth_header or not auth_header.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Missing or invalid token")
+        raise HTTPException(
+            status_code=401, 
+            detail="กรุณาเข้าสู่ระบบ (Missing or invalid token)"
+        )
 
     token = auth_header.split(" ")[1]
     payload = verify_token(token)
     
     if not payload:
-        raise HTTPException(status_code=401, detail="Token expired or invalid")
+        raise HTTPException(
+            status_code=401, 
+            detail="Session หมดอายุ กรุณาเข้าสู่ระบบใหม่"
+        )
 
     user = db.query(User).filter(User.email == payload.get("sub")).first()
     if not user:
-        raise HTTPException(status_code=401, detail="User not found")
+        raise HTTPException(status_code=401, detail="ไม่พบข้อมูลผู้ใช้งาน")
 
     return user
 
+# =========================
+# เส้นทางเช็คข้อมูลตัวเอง
+# =========================
 @router.get("/me")
 def get_me(current_user: User = Depends(get_current_user)):
     return {
         "user": {
             "email": current_user.email,
             "full_name": current_user.full_name,
-            "role": current_user.role
+            "role": getattr(current_user, "role", "user") # ป้องกันกรณีไม่มีฟิลด์ role
         }
     }
 
 # =========================
-# Logout (แบบ Token-based)
+# Logout (Redirect กลับเฉยๆ)
 # =========================
 @router.get("/logout")
 def logout():
