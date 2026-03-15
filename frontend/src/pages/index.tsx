@@ -3,9 +3,6 @@ import Link from "next/link";
 import Head from "next/head";
 import { motion } from "framer-motion";
 
-/* =============================================
-   ✅ แก้เป็น NEXT_PUBLIC_API_URL ให้ตรงกับ .env เป๊ะๆ
-   ============================================= */
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 export default function Home() {
@@ -13,28 +10,46 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // ดึงข้อมูล User
+    // ✅ 1. ดึง Token จาก LocalStorage
+    const token = localStorage.getItem("access_token");
+
+    if (!token) {
+      setUser(null);
+      setLoading(false);
+      return;
+    }
+
+    // ✅ 2. ดึงข้อมูล User โดยส่ง Token ไปทาง Header
     fetch(`${API_BASE}/auth/me`, {
-      credentials: "include",
+      method: "GET",
+      headers: {
+        "Authorization": `Bearer ${token}`, // ส่งบัตรพนักงานไปตรวจ
+      },
     })
       .then((res) => {
         if (!res.ok) throw new Error("Not logged in");
         return res.json();
       })
       .then((data) => {
-        // ดักเอาไว้เผื่อเพื่อนส่งมาทั้งก้อน หรือส่งซ้อนใน .user
-        setUser(data.user || data); 
+        // ดักข้อมูลเผื่อมาในรูปแบบ data.user
+        setUser(data.user || data);
         setLoading(false);
       })
-      .catch(() => {
+      .catch((err) => {
+        console.error("Fetch user failed:", err);
+        // ถ้า Token หมดอายุหรือผิด ให้ล้างออก
+        localStorage.removeItem("access_token");
         setUser(null);
         setLoading(false);
       });
   }, []);
 
+  // ✅ 3. แก้ไขฟังก์ชัน Logout ให้ลบ Token ในเครื่อง
   const handleLogout = () => {
-    // ใช้ Path Logout ที่เพื่อนตั้งไว้
-    window.location.href = `${API_BASE}/auth/logout`;
+    localStorage.removeItem("access_token");
+    setUser(null);
+    // วาร์ปกลับหน้าหลักเพื่อให้ State รีเฟรช
+    window.location.href = "/";
   };
 
   return (
@@ -128,7 +143,6 @@ export default function Home() {
           </div>
         </section>
 
-        {/* ================= FOOTER ================= */}
         <footer className="text-center py-10 bg-green-950 text-green-300 text-sm">
           <p>© 2026 LannaVeg Project | University of Phayao</p>
         </footer>
