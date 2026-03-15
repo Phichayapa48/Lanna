@@ -50,40 +50,37 @@ export default function Classify() {
     setShowReview(false);
   };
 
+  // ✅ ฟังก์ชันทำนายผล (Handle Upload)
   const handleUpload = async () => {
-    if (!file) {
-      setError("กรุณาเลือกรูปก่อน");
-      return;
-    }
-
+    if (!file) return setError("กรุณาเลือกรูปก่อน");
+    
     const formData = new FormData();
     formData.append("file", file);
+
+    const token = localStorage.getItem("access_token");
 
     try {
       setLoading(true);
       setError("");
       
-      // ✅ แก้ไข Syntax ตรงนี้: เอา { ... }) ที่เกินออก
-      const res = await fetch(`${API_BASE}/api/v1/predict/`, {
+      let res = await fetch(`${API_BASE}/api/v1/predict/`, {
         method: "POST",
         body: formData,
-        credentials: "include",
+        headers: token ? { "Authorization": `Bearer ${token}` } : {},
       });
 
+      // ถ้าไม่พบ Path api/v1 ให้ลองแบบไม่มี prefix (Retry Logic)
+      if (!res.ok && res.status === 404) {
+        res = await fetch(`${API_BASE}/predict/`, {
+          method: "POST",
+          body: formData,
+          headers: token ? { "Authorization": `Bearer ${token}` } : {},
+        });
+      }
+
       if (!res.ok) {
-        // ลองเช็คเผื่อเพื่อนเปลี่ยนเป็น /predict/ (ไม่มี api/v1)
-        if (res.status === 404) {
-             const retryRes = await fetch(`${API_BASE}/predict/`, {
-                method: "POST",
-                body: formData,
-                credentials: "include",
-             });
-             if (!retryRes.ok) throw new Error("ไม่พบเส้นทางทำนายบน Server");
-             const data = await retryRes.json();
-             setResult(data);
-             return;
-        }
-        throw new Error("เกิดข้อผิดพลาดในการทำนาย");
+        if (res.status === 401) throw new Error("กรุณาเข้าสู่ระบบก่อนใช้งาน");
+        throw new Error("เกิดข้อผิดพลาดในการทำนายบน Server");
       }
 
       const data = await res.json();
@@ -100,19 +97,22 @@ export default function Classify() {
     }
   };
 
+  // ✅ ฟังก์ชันบันทึกรีวิว (Handle Submit Review)
   const handleSubmitReview = async () => {
     if (!result) return;
+    const token = localStorage.getItem("access_token");
 
     try {
       setReviewLoading(true);
       
-      // ล้างเครื่องหมาย / ท้ายสุดของ API_BASE เพื่อไม่ให้มันซ้อนกัน
       const cleanBase = API_BASE.endsWith('/') ? API_BASE.slice(0, -1) : API_BASE;
 
       const res = await fetch(`${cleanBase}/reviews/`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}` 
+        },
         body: JSON.stringify({
           class_name: result.class_name,
           review_text: reviewText,
@@ -127,9 +127,8 @@ export default function Classify() {
         return;
       }
 
-      router.push(
-        `/review-map?review_id=${data.review_id}&class=${result.class_name}`
-      );
+      // บันทึกสำเร็จแล้วเด้งไปหน้า Map
+      router.push(`/review-map?review_id=${data.review_id}&class=${result.class_name}`);
 
     } catch (err) {
       alert("ไม่สามารถบันทึกรีวิวได้");
@@ -138,6 +137,7 @@ export default function Classify() {
     }
   };
 
+  // ค้นหาข้อมูลผักจากไฟล์ data
   const vegetable =
     result &&
     result.class_name !== "Unknown" &&
@@ -148,6 +148,8 @@ export default function Classify() {
   return (
     <div className="min-h-screen transition-colors duration-300 bg-gradient-to-br from-green-900 via-green-800 to-emerald-700 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 text-white flex items-center justify-center px-6 py-16">
       <div className="bg-white/10 dark:bg-slate-800 backdrop-blur-xl rounded-3xl shadow-2xl p-6 md:p-10 w-full max-w-4xl border border-white/20">
+        
+        {/* Navigation */}
         <div className="mb-6">
           <Link href="/" className="inline-block bg-white/10 hover:bg-white/20 px-5 py-2 rounded-xl text-sm transition shadow-sm">
             ← กลับหน้าแรก
@@ -158,6 +160,7 @@ export default function Classify() {
           🌿 Vegetable Classification
         </h1>
 
+        {/* Input Section */}
         <div className="space-y-6">
           <input
             type="file"
@@ -185,12 +188,14 @@ export default function Classify() {
           </button>
         </div>
 
+        {/* Error Message */}
         {error && (
           <div className="mt-6 p-4 bg-red-500/20 border border-red-500/50 rounded-xl text-red-300 text-center font-medium animate-pulse">
             ❌ {error}
           </div>
         )}
 
+        {/* Result Section */}
         {vegetable && result && (
           <div className="mt-14 rounded-3xl overflow-hidden bg-white/10 dark:bg-slate-900 border border-white/20 shadow-inner animate-fadeIn">
             <div className="bg-green-600 text-white p-8 text-center">
@@ -242,6 +247,7 @@ export default function Classify() {
                 </div>
               </div>
 
+              {/* Review Section */}
               <div className="mt-10 pt-8 border-t border-white/10 text-center">
                 {!showReview ? (
                   <button
