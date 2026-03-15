@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Request, HTTPException, Cookie, Depends
+from fastapi import APIRouter, Request, HTTPException, Depends, Header
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 from app.config import settings
@@ -16,12 +16,11 @@ logger = logging.getLogger(__name__)
 @router.get("/google/login")
 async def login_via_google(request: Request):
     oauth = request.app.state.oauth
-    # ใช้ url_for เพื่อสร้าง callback url ให้ตรงกับชื่อฟังก์ชัน
     redirect_uri = request.url_for("auth_callback")
     return await oauth.google.authorize_redirect(request, redirect_uri)
 
 # =========================
-# Google Callback (แก้ไขการ Set Cookie)
+# Google Callback (เปลี่ยนเป็นส่ง Token ผ่าน URL)
 # =========================
 @router.get("/google/callback", name="auth_callback")
 async def auth_callback(request: Request):
@@ -32,14 +31,9 @@ async def auth_callback(request: Request):
         user_info = token.get("userinfo")
 
         if not user_info:
-            raise HTTPException(
-                status_code=400,
-                detail="ไม่สามารถดึงข้อมูลจาก Google ได้"
-            )
+            return RedirectResponse(url=f"{settings.FRONTEND_URL}/login?error=google_failed")
 
-        user = db.query(User).filter(
-            User.email == user_info["email"]
-        ).first()
+        user = db.query(User).filter(User.email == user_info["email"]).first()
 
         if not user:
             user = User(
@@ -52,60 +46,43 @@ async def auth_callback(request: Request):
             db.commit()
             db.refresh(user)
 
+        # 1. สร้าง JWT Token
         jwt_token = create_access_token({"sub": user.email})
 
-        # ส่งกลับไปหน้าแรกของ Frontend
-        response = RedirectResponse(
-            url=settings.FRONTEND_URL,
-            status_code=302
-        )
+        # 2. ✅ ส่ง Token กลับไปที่หน้าพัก (เช่น /auth) ของ Frontend ทาง URL
+        # วิธีนี้มือถือ Android/iOS จะไม่บล็อก เพราะไม่ใช่การฝังคุกกี้ข้ามโดเมน
+        redirect_url = f"{settings.FRONTEND_URL}/auth?token={jwt_token}"
+        
+        return RedirectResponse(url=redirect_url)
 
-        # ✅ แก้ไข: ถอด domain=".onrender.com" ออก เพื่อให้ Safari ยอมรับคุกกี้
-        # ✅ และใช้ samesite="none" (พิมพ์เล็ก) เพื่อความเป๊ะตามมาตรฐาน Starlette
-        response.set_cookie(
-            key="access_token",
-            value=jwt_token,
-            httponly=True,
-            secure=True,     # ต้องเป็น True สำหรับ HTTPS
-            samesite="none", # ยอมให้ส่งข้ามโดเมน Frontend <-> Backend
-            path="/",
-            max_age=60 * 60 * 24 * 7 # 7 วัน
-        )
-
-        return response
-
+    except Exception as e:
+        logger.error(f"Auth Error: {e}")
+        return RedirectResponse(url=f"{settings.FRONTEND_URL}/login?error=exception")
     finally:
         db.close()
 
 # =========================
-# GET CURRENT USER
+# GET CURRENT USER (เปลี่ยนมาเช็คจาก Header)
 # =========================
 def get_current_user(
-    access_token: str = Cookie(None),
+    request: Request,
     db: Session = Depends(get_db)
 ):
-    if not access_token:
-        raise HTTPException(
-            status_code=401,
-            detail="กรุณาเข้าสู่ระบบก่อนใช้งาน"
-        )
+    # ✅ อ่าน Token จาก Header: Authorization: Bearer <token>
+    auth_header = request.headers.get("Authorization")
+    
+    if not auth_header or not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing or invalid token")
 
-    payload = verify_token(access_token)
+    token = auth_header.split(" ")[1]
+    payload = verify_token(token)
+    
     if not payload:
-        raise HTTPException(
-            status_code=401,
-            detail="Session หมดอายุ กรุณาเข้าสู่ระบบใหม่"
-        )
+        raise HTTPException(status_code=401, detail="Token expired or invalid")
 
-    user = db.query(User).filter(
-        User.email == payload.get("sub")
-    ).first()
-
+    user = db.query(User).filter(User.email == payload.get("sub")).first()
     if not user:
-        raise HTTPException(
-            status_code=401,
-            detail="ไม่พบผู้ใช้งาน กรุณาเข้าสู่ระบบใหม่"
-        )
+        raise HTTPException(status_code=401, detail="User not found")
 
     return user
 
@@ -120,35 +97,10 @@ def get_me(current_user: User = Depends(get_current_user)):
     }
 
 # =========================
-# Logout (แก้ไขแบบถอนรากถอนโคน)
+# Logout (แบบ Token-based)
 # =========================
 @router.get("/logout")
 def logout():
-    response = RedirectResponse(
-        url=settings.FRONTEND_URL,
-        status_code=302
-    )
-    
-    # ✅ ลบแบบที่ 1: ลบแบบระบุโดเมน (เผื่อของเก่าค้าง)
-    response.delete_cookie(
-        "access_token", 
-        path="/",
-        domain=".onrender.com", 
-        samesite="none",
-        secure=True
-    )
-    
-    # ✅ ลบแบบที่ 2: ลบแบบมาตรฐาน (เพื่อให้ Safari ยอมลบจริงๆ)
-    response.delete_cookie(
-        "access_token", 
-        path="/",
-        samesite="none",
-        secure=True
-    )
-    
-    # ✅ ป้องกัน Safari ใช้ Cache หน้าเดิม
-    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
-    response.headers["Pragma"] = "no-cache"
-    response.headers["Expires"] = "0"
-    
-    return response
+    # ฝั่ง Backend แค่ส่งกลับไปหน้าแรก 
+    # หน้าที่ลบ Token จริงๆ จะอยู่ที่ Frontend (localStorage.removeItem)
+    return RedirectResponse(url=settings.FRONTEND_URL)
