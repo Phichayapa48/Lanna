@@ -1,4 +1,4 @@
-const API_URL = "http://localhost:8000";
+const API_URL = "https://lanna-backend.onrender.com";
 console.log("API_URL =", API_URL);
 
 export const apiFetch = (url: string, options: RequestInit = {}) => {
