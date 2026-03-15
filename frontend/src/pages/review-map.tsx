@@ -53,13 +53,25 @@ export default function ReviewMap() {
       return;
     }
 
+    // 🔑 ดึงกุญแจ (Token) ออกมาจากกระเป๋า (localStorage)
+    const token = localStorage.getItem("access_token");
+    if (!token) {
+      alert("ไม่พบข้อมูลการเข้าสู่ระบบ กรุณา Login ใหม่อีกครั้ง");
+      router.push("/auth");
+      return;
+    }
+
     try {
       setLoading(true);
 
       const res = await fetch(`${API_BASE}/api/v1/reviews/${review_id}/location`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
+        headers: { 
+          "Content-Type": "application/json",
+          // ✅ เพิ่มบรรทัดนี้เพื่อส่งกุญแจไปให้ Backend
+          "Authorization": `Bearer ${token}` 
+        },
+        // credentials: "include", // มักใช้คู่กับ Cookie แต่ในที่นี้เราใช้ Bearer Token เป็นหลัก
         body: JSON.stringify({
           latitude: lat,
           longitude: lng,
@@ -69,7 +81,13 @@ export default function ReviewMap() {
 
       if (!res.ok) {
         const err = await res.json();
-        alert(err.detail || "บันทึกไม่สำเร็จ");
+        // 🚨 ถ้า Backend บอกว่า Token หมดอายุ หรือไม่ถูกต้อง
+        if (res.status === 401) {
+          alert("เซสชั่นหมดอายุ (Missing or invalid token) กรุณาเข้าสู่ระบบใหม่");
+          router.push("/auth");
+        } else {
+          alert(err.detail || "บันทึกไม่สำเร็จ");
+        }
         return;
       }
 
@@ -80,7 +98,7 @@ export default function ReviewMap() {
       }
 
     } catch {
-      alert("เกิดข้อผิดพลาด");
+      alert("เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์");
     } finally {
       setLoading(false);
     }
@@ -102,7 +120,6 @@ export default function ReviewMap() {
           📍 ปักหมุดสถานที่รีวิว
         </h1>
 
-        {/* 🗺️ ส่วนแผนที่: ใช้โครงสร้าง Div เดิมเป๊ะ แต่ใส่ GoogleMap แทน <img> */}
         <div className="rounded-2xl overflow-hidden border border-white/20 h-48 bg-slate-800 flex items-center justify-center">
           {isLoaded ? (
             <GoogleMap
@@ -110,7 +127,7 @@ export default function ReviewMap() {
               center={{ lat: lat || 19.0, lng: lng || 99.0 }}
               zoom={15}
               onClick={onMapClick}
-              options={{ disableDefaultUI: true }} // ปิดปุ่มรกๆ เพื่อให้คลีนแบบ UI เดิม
+              options={{ disableDefaultUI: true }}
             >
               {lat && lng && <Marker position={{ lat, lng }} draggable={true} />}
             </GoogleMap>
@@ -137,7 +154,7 @@ export default function ReviewMap() {
         <button
           onClick={handleSaveLocation}
           disabled={loading}
-          className="w-full bg-green-500 hover:bg-green-600 px-6 py-3 rounded-xl font-semibold transition"
+          className="w-full bg-green-500 hover:bg-green-600 px-6 py-3 rounded-xl font-semibold transition disabled:opacity-50"
         >
           {loading ? "กำลังบันทึก..." : "บันทึกตำแหน่ง"}
         </button>
