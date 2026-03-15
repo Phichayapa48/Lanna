@@ -69,7 +69,6 @@ export default function Classify() {
         headers: token ? { "Authorization": `Bearer ${token}` } : {},
       });
 
-      // ถ้าไม่พบ Path api/v1 ให้ลองแบบไม่มี prefix (Retry Logic)
       if (!res.ok && res.status === 404) {
         res = await fetch(`${API_BASE}/predict/`, {
           method: "POST",
@@ -127,7 +126,6 @@ export default function Classify() {
         return;
       }
 
-      // บันทึกสำเร็จแล้วเด้งไปหน้า Map
       router.push(`/review-map?review_id=${data.review_id}&class=${result.class_name}`);
 
     } catch (err) {
@@ -137,7 +135,6 @@ export default function Classify() {
     }
   };
 
-  // ค้นหาข้อมูลผักจากไฟล์ data
   const vegetable =
     result &&
     result.class_name !== "Unknown" &&
@@ -149,7 +146,6 @@ export default function Classify() {
     <div className="min-h-screen transition-colors duration-300 bg-gradient-to-br from-green-900 via-green-800 to-emerald-700 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 text-white flex items-center justify-center px-6 py-16">
       <div className="bg-white/10 dark:bg-slate-800 backdrop-blur-xl rounded-3xl shadow-2xl p-6 md:p-10 w-full max-w-4xl border border-white/20">
         
-        {/* Navigation */}
         <div className="mb-6">
           <Link href="/" className="inline-block bg-white/10 hover:bg-white/20 px-5 py-2 rounded-xl text-sm transition shadow-sm">
             ← กลับหน้าแรก
@@ -160,7 +156,6 @@ export default function Classify() {
           🌿 Vegetable Classification
         </h1>
 
-        {/* Input Section */}
         <div className="space-y-6">
           <input
             type="file"
@@ -188,14 +183,12 @@ export default function Classify() {
           </button>
         </div>
 
-        {/* Error Message */}
         {error && (
           <div className="mt-6 p-4 bg-red-500/20 border border-red-500/50 rounded-xl text-red-300 text-center font-medium animate-pulse">
             ❌ {error}
           </div>
         )}
 
-        {/* Result Section */}
         {vegetable && result && (
           <div className="mt-14 rounded-3xl overflow-hidden bg-white/10 dark:bg-slate-900 border border-white/20 shadow-inner animate-fadeIn">
             <div className="bg-green-600 text-white p-8 text-center">
