@@ -1,10 +1,9 @@
 const API_URL = "https://lanna-backend.onrender.com";
-console.log("API_URL =", API_URL);
 
 export const apiFetch = (url: string, options: RequestInit = {}) => {
   return fetch(url, {
     ...options,
-    credentials: "include",   
+    credentials: "include", // ถูกต้องแล้ว (สำคัญมากสำหรับ iOS)
   });
 };
 
@@ -12,7 +11,8 @@ export const classifyImage = async (file: File) => {
   const formData = new FormData();
   formData.append("file", file);
 
-  const res = await apiFetch(`${API_URL}/predict`, {
+  // 🛠️ แก้ไขตรงนี้: เพิ่ม /api/v1 เข้าไปข้างหน้า
+  const res = await apiFetch(`${API_URL}/api/v1/predict`, {
     method: "POST",
     body: formData,
   });
