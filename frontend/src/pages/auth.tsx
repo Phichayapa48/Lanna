@@ -7,16 +7,27 @@ export default function AuthPage() {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
-  // ดึงค่า URL จาก Environment Variable
   const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 
   useEffect(() => {
+    // 1. ✅ ดักจับ Token จาก URL (ที่ Backend ส่งมาทาง ?token=...)
+    const { token } = router.query;
+    if (token) {
+      localStorage.setItem("access_token", token as string);
+      // ล้าง query บน URL เพื่อความสวยงาม
+      router.replace("/auth", undefined, { shallow: true });
+    }
+
+    // 2. ✅ ดึงข้อมูล User โดยใช้ Header (แทน Cookie)
+    const accessToken = localStorage.getItem("access_token");
+
     axios
       .get(`${API_URL}/auth/me`, {
-        withCredentials: true,
+        // ส่งทั้ง 2 แบบ (เผื่อคอมใช้คุกกี้ เผื่อมือถือใช้ Header)
+        withCredentials: true, 
+        headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
       })
       .then((res) => {
-        // ✅ ปรับให้เข้ากับโครงสร้าง {"user": {...}} จาก Backend
         setUser(res.data.user || res.data);
       })
       .catch((err) => {
@@ -26,28 +37,30 @@ export default function AuthPage() {
       .finally(() => {
         setLoading(false);
       });
-  }, [API_URL]);
+  }, [API_URL, router.query]); // เพิ่ม router.query เพื่อให้ทำงานเมื่อ token มาถึง
 
-  // ✅ แก้ Logic Logout ให้ "บังคับ Refresh" เพื่อล้างหน้าจอที่ค้างอยู่
   const handleLogout = async () => {
     try {
+      // ✅ เรียก Logout ฝั่ง Server
       await axios.get(`${API_URL}/auth/logout`, {
         withCredentials: true,
       });
       
-      // ✅ ล้าง State ในเครื่อง
+      // ✅ ล้างบัตรผ่าน (Token) ในเครื่องออกให้หมด
+      localStorage.removeItem("access_token");
       setUser(null);
       
-      // ✅ บังคับโหลดหน้าใหม่เพื่อล้าง Cache ของ Browser และ UI ที่ค้าง
       window.location.href = "/"; 
       
     } catch (err) {
       console.error("Logout failed", err);
+      localStorage.removeItem("access_token");
       setUser(null);
       window.location.href = "/";
     }
   };
 
+  // --- UI เดิมเป๊ะ ห้ามแก้ ---
   if (loading) {
     return <div style={{ color: "white", textAlign: "center", marginTop: "100px" }}>Loading...</div>;
   }
