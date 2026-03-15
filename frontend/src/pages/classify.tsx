@@ -50,7 +50,7 @@ export default function Classify() {
     setShowReview(false);
   };
 
-  // ✅ ฟังก์ชันทำนายผล (Handle Upload)
+  // ✅ ฟังก์ชันทำนายผล
   const handleUpload = async () => {
     if (!file) return setError("กรุณาเลือกรูปก่อน");
     
@@ -96,17 +96,23 @@ export default function Classify() {
     }
   };
 
-  // ✅ ฟังก์ชันบันทึกรีวิว (Handle Submit Review)
+  // ✅ ฟังก์ชันบันทึกรีวิว (ปรับปรุงเพื่อรองรับมือถือ)
   const handleSubmitReview = async () => {
     if (!result) return;
     const token = localStorage.getItem("access_token");
+
+    if (!token) {
+      alert("กรุณาเข้าสู่ระบบก่อนบันทึกรีวิวครับ");
+      router.push("/auth");
+      return;
+    }
 
     try {
       setReviewLoading(true);
       
       const cleanBase = API_BASE.endsWith('/') ? API_BASE.slice(0, -1) : API_BASE;
 
-      const res = await fetch(`${cleanBase}/reviews/`, {
+      const res = await fetch(`${cleanBase}/api/v1/reviews/`, {
         method: "POST",
         headers: { 
           "Content-Type": "application/json",
@@ -122,14 +128,19 @@ export default function Classify() {
       const data = await res.json();
 
       if (!res.ok) {
-        alert(data.detail || "เกิดข้อผิดพลาดในการบันทึก");
+        if (res.status === 401) {
+          alert("เซสชั่นหมดอายุ กรุณา Login ใหม่อีกครั้ง");
+          router.push("/auth");
+        } else {
+          alert(data.detail || "เกิดข้อผิดพลาดในการบันทึก");
+        }
         return;
       }
 
       router.push(`/review-map?review_id=${data.review_id}&class=${result.class_name}`);
 
     } catch (err) {
-      alert("ไม่สามารถบันทึกรีวิวได้");
+      alert("ไม่สามารถบันทึกรีวิวได้ โปรดตรวจสอบการเชื่อมต่ออินเทอร์เน็ต");
     } finally {
       setReviewLoading(false);
     }
@@ -160,6 +171,7 @@ export default function Classify() {
           <input
             type="file"
             accept="image/*"
+            capture="environment" // ✅ เพิ่มเพื่อเรียกกล้องบนมือถือ
             onChange={handleFileChange}
             className="w-full border border-gray-400 dark:border-slate-600 rounded-2xl p-3 bg-white dark:bg-slate-700 text-black dark:text-white"
           />
