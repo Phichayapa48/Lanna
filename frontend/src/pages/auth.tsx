@@ -15,15 +15,14 @@ export default function AuthPage() {
     
     if (token && typeof token === "string") {
       localStorage.setItem("access_token", token);
-      // ล้าง Token ออกจาก URL เพื่อความปลอดภัยและสวยงาม
+      // ล้าง Token ออกจาก URL เพื่อความปลอดภัย
       router.replace("/auth", undefined, { shallow: true });
     }
 
-    // ✅ 2. ดึงข้อมูล User โดยใช้ Token ที่เพิ่งได้ หรือที่มีอยู่ในเครื่อง
+    // ✅ 2. ดึงข้อมูล User
     const fetchUser = async () => {
       const accessToken = localStorage.getItem("access_token");
       
-      // ถ้าไม่มี Token ใน URL และไม่มีใน localStorage เลย ก็ไม่ต้อง Fetch
       if (!token && !accessToken) {
         setLoading(false);
         return;
@@ -31,16 +30,20 @@ export default function AuthPage() {
 
       try {
         const res = await axios.get(`${API_URL}/auth/me`, {
-          // รองรับทั้งแบบ Cookie (withCredentials) และ Header (Bearer)
           withCredentials: true,
           headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
         });
         
-        // Backend ส่งมาเป็น { user: {...} } หรือมาเป็นก้อน Object เลย
-        setUser(res.data.user || res.data);
+        const userData = res.data.user || res.data;
+        setUser(userData);
+
+        // 🔥 [เพิ่มใหม่] พอดึงข้อมูลสำเร็จ ให้หน่วงเวลาแว๊บเดียวแล้ววาร์ปกลับหน้าหลัก
+        setTimeout(() => {
+          router.push("/");
+        }, 800); // หน่วงไว้ 0.8 วินาทีให้พอเห็นชื่อตัวเอง
+
       } catch (err) {
         console.log("Not logged in or token expired");
-        // ❌ ถ้าดึงข้อมูลไม่ได้ (Token อาจหมดอายุ) ให้ล้าง Token ทิ้ง
         localStorage.removeItem("access_token");
         setUser(null);
       } finally {
@@ -48,27 +51,24 @@ export default function AuthPage() {
       }
     };
 
-    // ป้องกันการรัน Fetch ก่อนที่ router.isReady จะเป็น True (Next.js Hydration)
     if (router.isReady) {
       fetchUser();
     }
-  }, [router.isReady, router.query.token]); // รันเฉพาะตอน router พร้อม หรือ token เปลี่ยน
+  }, [router.isReady, router.query.token]);
 
   const handleLogout = async () => {
     try {
-      // ✅ เรียก Logout ฝั่ง Server เพื่อเคลียร์ Session/Cookie
       await axios.get(`${API_URL}/auth/logout`, { withCredentials: true });
     } catch (err) {
       console.error("Server logout failed", err);
     } finally {
-      // ✅ ยังไงก็ต้องล้าง Token ในเครื่อง และส่ง User ไปหน้าแรก
       localStorage.removeItem("access_token");
       setUser(null);
       window.location.href = "/";
     }
   };
 
-  // --- UI เดิมที่อ้ายห้ามแก้ (จัดให้ครับ!) ---
+  // --- UI เดิมที่อ้ายห้ามแก้ ---
   if (loading) {
     return <div style={{ color: "white", textAlign: "center", marginTop: "100px" }}>Loading...</div>;
   }
@@ -97,6 +97,7 @@ export default function AuthPage() {
           <>
             <h2>Welcome {user.full_name || user.username}</h2>
             <p>{user.email}</p>
+            <p style={{ fontSize: "12px", color: "#94a3b8" }}>Redirecting to home...</p>
 
             <button
               onClick={handleLogout}
