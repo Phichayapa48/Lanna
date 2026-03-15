@@ -22,7 +22,7 @@ app = FastAPI(
 )
 
 # =========================
-# 2. CORS Setup (หัวใจสำคัญของการเชื่อมต่อ)
+# 2. CORS Setup (หัวใจสำคัญของการเชื่อมต่อมือถือและเว็บ)
 # =========================
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000").rstrip("/")
 
@@ -36,20 +36,19 @@ origins = [
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
-    allow_credentials=True, # ✅ จำเป็นสำหรับ OAuth flow
+    allow_credentials=True, # ✅ จำเป็นสำหรับ Google OAuth
     allow_methods=["*"],
-    allow_headers=["*"],    # ✅ สำคัญ: ต้องอนุญาต headers ทั้งหมดเพื่อให้ส่ง Authorization: Bearer ได้
+    allow_headers=["*"],    # ✅ สำคัญ: เพื่อให้มือถือส่ง Authorization Header ได้
 )
 
 # =========================
 # 3. Session Middleware
 # =========================
-# ใช้สำหรับเก็บ 'state' ตอนทำ Google Login ชั่วคราว
 app.add_middleware(
     SessionMiddleware,
     secret_key=settings.SECRET_KEY,
     same_site="none",  
-    https_only=True,   # ✅ บน Render ต้องเป็น True เสมอ
+    https_only=True,   # ✅ บน Render/Production ต้องเป็น True เสมอเพื่อความปลอดภัย
 )
 
 # =========================
@@ -64,7 +63,6 @@ oauth.register(
     client_kwargs={"scope": "openid email profile"},
 )
 
-# ✅ เก็บ oauth ไว้ใน state เพื่อให้ auth_router เรียกใช้ได้
 app.state.oauth = oauth
 
 # =========================
@@ -73,7 +71,6 @@ app.state.oauth = oauth
 @app.on_event("startup")
 def on_startup():
     try:
-        # สร้าง Table ตาม Models ที่เรา Import มา (User, Review ฯลฯ)
         Base.metadata.create_all(bind=engine)
         print("✅ Database tables checked/created")
     except Exception as e:
@@ -95,17 +92,16 @@ def ping():
     return {"pong": True}
 
 # =========================
-# 7. Routers (จัดกลุ่มให้ Frontend ใช้ง่าย)
+# 7. Routers (จัดกลุ่มรองรับทั้ง Mobile และ Web)
 # =========================
 
-# กลุ่ม API หลัก (Predict, Reviews)
+# ✅ กลุ่มหลักที่ใช้ในหน้า classify.tsx (Standard Path)
 app.include_router(predict_router, prefix="/api/v1", tags=["Prediction"])
 app.include_router(review_router, prefix="/api/v1", tags=["Reviews"])
 
-# กลุ่ม Auth (Google Login)
+# ✅ กลุ่ม Auth
 app.include_router(auth_router, prefix="/auth", tags=["Authentication"])
 
-# ✅ กันเหนียว: เผื่อ Frontend เรียก Review แบบไม่มี /api/v1
+# ✅ Legacy Paths (กันเหนียว เผื่อโค้ดเก่าส่วนอื่นยังเรียกใช้)
 app.include_router(review_router, prefix="/reviews", tags=["Reviews Legacy"])
-# ✅ กันเหนียว: เผื่อเรียก Predict แบบตรงๆ
 app.include_router(predict_router, prefix="/predict", tags=["Prediction Legacy"])
